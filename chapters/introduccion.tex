@@ -1,0 +1,215 @@
+\chapter{Introducción}
+\label{chap:intro}
+
+Cuando se habla del impacto de la ingeniería informática en la sociedad, el
+discurso predominante suele orbitar en torno al crecimiento económico: la
+digitalización de los mercados, la automatización industrial o el surgimiento
+de nuevos modelos de negocio basados en datos. Esta perspectiva no es errónea,
+pero es incompleta. La ingeniería del software y, en particular, la
+\textbf{inteligencia artificial} (\ac{IA}), son también herramientas de
+progreso humano: a pesar de las críticas legítimas sobre su impacto social,
+estas tecnologías pueden ayudar a reducir desigualdades, ampliar el acceso a
+servicios especializados y poner en manos de colectivos vulnerables recursos
+que de otro modo les serían inaccesibles.
+
+La comunicación es una de las características más fundamentales y propias del ser humano. 
+A través de ella construimos relaciones, expresamos necesidades, compartimos conocimiento y
+participamos en la vida social. Sin embargo, para un porcentaje significativo de
+la población (personas con parálisis cerebral, trastornos del espectro
+autista, enfermedades neuromusculares degenerativas o lesiones adquiridas del
+sistema nervioso) la comunicación oral resulta difícil, extremadamente
+limitada o, incluso, imposible. Estas personas recurren a los \textbf{\ac{SAAC}}: tableros de pictogramas,
+dispositivos generadores de voz o aplicaciones que les permiten construir
+mensajes combinando símbolos visuales. Los \ac{SAAC} no son un sustituto pobre
+del lenguaje oral; son, en muchos casos, la única vía real de acceso a la
+comunicación, y con ella, a la autonomía, a la educación y a la participación
+en comunidad.
+
+La logopedia y la atención temprana disponen de herramientas para evaluar el
+desarrollo lingüístico de estos usuarios, identificar sus necesidades
+específicas y diseñar intervenciones personalizadas. No obstante, entre las
+herramientas disponibles y su uso sistemático en la práctica clínica cotidiana
+existe una brecha que tiene un nombre concreto: \textbf{tiempo}. El análisis riguroso
+de una muestra de lenguaje asistido puede consumir mucho tiempo de
+trabajo experto por cada sesión. Ante esa carga, muchos profesionales se ven 
+forzados a priorizar la intervención directa sobre la evaluación detallada, 
+o a espaciar las valoraciones hasta hacerlas poco representativas de la 
+evolución real del usuario.
+
+Es en este punto donde la ingeniería informática tiene algo que aportar que va
+más allá de la eficiencia. Automatizar una parte de ese análisis no significa
+reemplazar al logopeda ni reducir la complejidad clínica a un algoritmo, sino
+\textit{liberar} al profesional de las tareas más mecánicas y repetitivas
+(la \textbf{transcripción}, el \textbf{conteo de morfemas}, el
+\textbf{cómputo de métricas estandarizadas}) para que pueda dedicar su tiempo
+y su criterio a lo que ningún sistema informático puede hacer: interpretar,
+contextualizar, relacionarse con el usuario y con su familia, y tomar
+decisiones terapéuticas fundadas en una evaluación más frecuente y completa.
+Este trabajo busca precisamente ese objetivo, poniendo las técnicas del
+Procesamiento del Lenguaje Natural (\ac{PLN}), el reconocimiento automático
+del habla y el aprendizaje automático al servicio de un colectivo que las
+necesita: las personas que se comunican mediante \ac{SAAC} y los profesionales
+que las acompañan.
+
+\section{Contexto y motivación}
+
+El \textbf{análisis de muestras de lenguaje} (\emph{Language Sample Analysis}, LSA) es
+el protocolo estrella en logopedia para caracterizar las habilidades comunicativas
+expresivas de una persona. Consiste en recoger una muestra representativa de la 
+producción lingüística del usuario en contextos naturales, transcribirla y analizarla 
+sistemáticamente en múltiples dimensiones: el vocabulario empleado, la morfología de 
+las formas producidas, la complejidad de las estructuras gramaticales y la organización
+sintáctica de los enunciados. El \ac{LSA} refleja el lenguaje real del usuario, no su 
+capacidad de responder a un estímulo artificial, y permite un seguimiento longitudinal
+genuino del progreso terapéutico \cite{lsa_computer_programs}.
+
+Para los usuarios de \ac{SAAC}, el LSA presenta desafíos específicos que los
+protocolos existentes en inglés, fundamentalmente \ac{SALT} (\emph{Systematic
+Analysis of Language Transcripts}) y CLAN/CHILDES, no estaban diseñados para abordar 
+\cite{soto2022paalss_tutorial}. El lenguaje asistido no es simplemente habla oral 
+reducida: los pictogramas representan mayoritariamente formas de cita sin flexión 
+morfológica, los enunciados son más cortos y telegráficos, el mensaje puede construirse 
+combinando símbolos con gestos y mirada, y la producción está condicionada por el 
+vocabulario disponible en el dispositivo \cite{nlp_aac_application}. Aplicar métricas 
+de habla oral a este tipo de producción introduce sesgos que infravaloran sistemáticamente la
+competencia comunicativa real del usuario \cite{soto2022paalss_tutorial}.
+
+La lingüista \textbf{Gloria Soto} publicó el \ac{PAALSS} (\emph{Protocol for the
+Analysis of Aided Language Samples in Spanish}), el primer protocolo diseñado 
+específicamente para el análisis de muestras de lenguaje asistido en español. 
+El \ac{PAALSS} evalúa cuatro dimensiones: el vocabulario producido, la morfología 
+gramatical, la complejidad de los enunciados medida mediante la Longitud Media del 
+Enunciado (\ac{LME}), y la sintaxis expresada a través del orden canónico sujeto-verbo-objeto
+\cite{soto2022paalss_tutorial}. Su aplicación requiere al menos 50 enunciados recogidos 
+en contextos naturales de interacción, que un especialista en \ac{SAAC} debe transcribir, 
+segmentar y codificar manualmente \cite{soto2024paalss_pilot}. El coste temporal de este proceso, que puede
+alcanzar varias horas por cada sesión, es la principal barrera para su adopción sistemática 
+en la práctica clínica y educativa.
+
+Por otro lado, los avances recientes en \textit{\ac{PLN}} y en modelos de lenguaje
+preentrenados ofrecen, por primera vez, herramientas con la madurez técnica
+suficiente para abordar este problema de forma realista: el reconocimiento
+automático del habla con modelos locales como \emph{Whisper}
+\cite{lsa_swiss_benchmark}, la diarización de hablantes
+\cite{whisper_diarization_realtime}, el análisis morfosintáctico basado en
+\emph{transformers} \cite{lsa_automation_jslhr} y el aprendizaje con pocos ejemplos 
+en dominios clínicos de datos escasos \cite{fewshot_clinical_nlp} conforman un 
+conjunto de bloques tecnológicos que, combinados adecuadamente, pueden constituir 
+un sistema capaz de asistir el análisis manual del \ac{PAALSS}.
+
+De esta forma, el presente trabajo propone el diseño y la evaluación de un
+sistema de \ac{IA} para la \textbf{automatización parcial} del protocolo \ac{PAALSS},
+con el objetivo de reducir la carga de trabajo del clínico y facilitar la
+aplicación sistemática del protocolo en entornos donde los recursos de tiempo
+son limitados. El sistema respeta en todo momento las restricciones de
+privacidad que impone el trabajo con datos de menores con discapacidad:
+todo el procesamiento se realiza localmente, sin dependencia de servicios
+externos en la nube \cite{lsa_swiss_benchmark}.
+
+% TODO: Ampliar con estadísticas sobre prevalencia de usuarios SAAC
+% y contexto clínico/educativo en España.
+
+\section{Planteamiento del problema}
+
+Dado un vídeo de una sesión de interacción entre un usuario de \ac{SAAC} y su
+interlocutor, se desea obtener automáticamente los valores de las cuatro dimensiones del
+protocolo \ac{PAALSS}: \textbf{vocabulario}, \textbf{morfología}, 
+\textbf{complejidad gramatical} y \textbf{sintaxis}. Todo esto sin que el clínico 
+tenga que realizar manualmente la transcripción, segmentación y análisis lingüístico de
+los enunciados. El sistema recibe como entrada una grabación de vídeo y debe producir 
+como salida un formulario pre-rellenado con las métricas cuantitativas que el protocolo 
+exige para cada una de esas dimensiones.
+
+La naturaleza del lenguaje asistido introduce dificultades que no tienen
+equivalente en los sistemas de análisis de lenguaje oral convencionales 
+\cite{lsa_computer_programs}. El usuario de \ac{SAAC} construye sus mensajes combinando 
+selecciones de pictogramas con vocalizaciones, gestos, mirada dirigida y, en ocasiones, 
+movimientos corporales. Un sistema centrado únicamente en el canal de audio captaría en 
+el mejor de los casos las vocalizaciones del usuario y del interlocutor, pero perdería 
+la contribución lingüística más relevante para el análisis del protocolo: la secuencia de
+pictogramas seleccionados en el tablero de comunicación. Esta asimetría entre
+el canal de información primario para el análisis y el canal explotado por los
+sistemas de transcripción convencionales es la primera fuente de complejidad
+técnica del problema.
+
+En segundo lugar, la morfología de las formas producidas por los usuarios de
+\ac{SAAC} no es directamente observable en la señal. El análisis morfológico del
+\ac{PAALSS} requiere determinar si el usuario ha producido un participio o un
+plural, algo que en el habla oral se manifiesta mediante marcas fonológicas
+explícitas pero que en el lenguaje asistido debe inferirse del contexto
+comunicativo y de las vocalizaciones parciales que puedan acompañar la selección 
+del pictograma \cite{soto2022paalss_tutorial}. Esta inferencia exige una representación
+multimodal del enunciado que los modelos de \ac{PLN} convencionales, entrenados
+sobre texto escrito o habla oral, no están preparados para explotar.
+
+En tercer lugar, la escasez de datos anotados en este dominio es estructural.
+El \ac{PAALSS} es un protocolo reciente y el número de sesiones anotadas según sus 
+criterios en español es reducido. Los sistemas basados en \emph{transformers} que han 
+obtenido resultados destacables en tareas de análisis del lenguaje oral no pueden 
+reentrenarse en este dominio por falta de datos suficientes \cite{lsa_automation_jslhr}. 
+El sistema debe por tanto combinar enfoques basados en reglas lingüísticas explícitas, 
+análisis morfosintáctico con herramientas de \ac{PLN} en español y aprendizaje
+automático con muy pocos ejemplos para las categorías más ambiguas
+\cite{fewshot_clinical_nlp}.
+
+Por otro lado, la solución técnica está acotada por la restricción de
+privacidad ya introducida: el cumplimiento estricto del \textbf{Reglamento
+General de Protección de Datos} (RGPD) limita el catálogo de herramientas
+disponibles a modelos \emph{Open-Source} de inferencia local, como
+\emph{Whisper}, con la ventaja adicional de que elimina la dependencia de 
+proveedores externos y garantiza la disponibilidad del sistema
+en entornos clínicos con conectividad y recursos limitados.
+
+Cabe señalar, finalmente, lo que este trabajo no pretende resolver. El sistema
+propuesto no realiza diagnósticos clínicos ni sustituye el criterio del
+especialista en \ac{SAAC}. El alcance se circunscribe al español y a los formatos 
+de sesión compatibles con el \ac{PAALSS}: sesiones de lectura compartida o juego 
+con un interlocutor, grabadas en vídeo. La evaluación de la precisión
+del sistema se lleva a cabo comparando sus salidas con las anotaciones expertas
+de dos sesiones reales del protocolo \cite{soto2024paalss_pilot}, lo que
+establece un límite natural para la generalización de los resultados pero
+permite una comparación directa con el estándar clínico de referencia.
+
+\section{Competencias adquiridas}
+
+En cuanto a las competencias de \emph{conocimiento}, el procesamiento íntegramente
+local que exigen las sesiones de una menor con discapacidad aplica la interpretación
+de la legislación y los aspectos éticos del tratamiento de datos personales sensibles
+(CN01), mientras que el conjunto de técnicas de \ac{IA} empleadas (reconocimiento del
+habla, diarización, modelos de lenguaje preentrenados, clasificación \emph{few-shot} y
+generación aumentada por recuperación) aplica la comprensión de sus fundamentos (CN02).
+
+De las competencias de \emph{habilidad}, el \emph{pipeline} de transcripción,
+diarización y fusión en Turnos Comunicativos pone en práctica la construcción de
+sistemas \emph{software} basados en aprendizaje automático (HA01); la elección razonada
+entre reglas lingüísticas, \ac{PLN} convencional y clasificadores \emph{few-shot} para
+cada categoría morfológica ejercita la evaluación de la técnica más adecuada para cada
+subproblema (HA02); y la escasez de sesiones anotadas según el protocolo \ac{PAALSS}
+exige recopilar y procesar datos de calidad bajo criterios éticos y legales (HA03).
+
+De las competencias \emph{generales}, formalizar las cuatro dimensiones del protocolo en
+métricas computables aplica representación del conocimiento y aprendizaje automático
+para la decisión clínica (CP01); estructurar el trabajo en cinco objetivos específicos
+ejercita la planificación de proyectos de \ac{IA} (CP02); y la identificación de
+limitaciones de sesgo, trazabilidad y privacidad, junto con la renuncia explícita a toda
+función diagnóstica, ejemplifica la detección de debilidades normativas y su mitigación
+(CP04).
+
+
+\section{Estructura del documento}
+
+Esta memoria está compuesta por una serie de capítulos en los que se definen distintos 
+aspectos a resaltar.
+
+\begin{enumerate}
+    \item \emph{Antecedentes}. Recoge la revisión bibliográfica y el estado del 
+    arte en los ámbitos relevantes.
+    \item \emph{Objetivos}. Presenta el objetivo general, los objetivos específicos 
+    y el alcance del trabajo.
+    \item \emph{Método}. Describe la metodología seguida y el diseño del sistema propuesto.
+    \item \emph{Resultados}. En este capítulo es donde se exponen todo lo que se ha 
+    realizado durante el desarrollo, respetando la metodología definida anteriormente. 
+    Presenta los resultados obtenidos y su evaluación.
+    \item \emph{Conclusiones}. Resume las conclusiones del trabajo y propone líneas de 
+    trabajo futuro.
+\end{enumerate}
