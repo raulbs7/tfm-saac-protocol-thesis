@@ -53,10 +53,12 @@ carencia concreta detectada en la revisión del estado del arte.
 Implementar un sistema automático de extracción de enunciados desde el canal auditivo del
 vídeo de la sesión, mediante transcripción automática del habla, diarización de hablantes
 y fusión de ambas señales en Turnos Comunicativos (CT) atribuidos al hablante
-correspondiente. La transcripción se apoya en modelos \emph{Whisper} ejecutados de forma
-local, mientras que la diarización separa los turnos de la persona usuaria de SAAC de los
-de su interlocutor mediante enfoques como \emph{pyannote.audio} o \emph{DiCoW}. 
-El análisis de la modalidad visual, selección de pictogramas, gesto y mirada, queda planteado 
+correspondiente. La transcripción se apoya en modelos \emph{Whisper}~\cite{whisper_radford2023}
+ejecutados de forma local mediante \texttt{faster-whisper}, mientras que la diarización
+separa los turnos de la persona usuaria de SAAC de los de su interlocutor mediante
+enfoques como \emph{pyannote.audio}~\cite{pyannote_plaquet2023} o
+\emph{DiCoW}~\cite{dicow_diarization}.
+El análisis de la modalidad visual, selección de pictogramas, gesto y mirada, queda planteado
 como línea de trabajo futuro, una vez validado el canal auditivo sobre las sesiones disponibles.
 
 \subsection{OE2: Pipeline de procesamiento lingüístico}
@@ -67,9 +69,10 @@ protocolo de Gloria Soto, adaptando los modelos de \ac{PLN} disponibles para el 
 particularidades del lenguaje producido con \ac{SAAC}. Estas particularidades incluyen el uso
 de pictogramas en forma de cita (infinitivo, singular), la ausencia de inflexión
 morfológica explícita en la selección y la naturaleza telegráfica de los enunciados. Dado
-que herramientas como \emph{spaCy-es} o \emph{BETO} se han entrenado sobre habla y texto
-estándar, su aplicación directa requiere una capa de adaptación que tenga en cuenta el
-contexto multimodal de la sesión y no únicamente la etiqueta léxica del pictograma.
+que herramientas como \emph{spaCy}~\cite{spoken_spanish_pos} o
+\emph{BETO}~\cite{beto_morphological} se han entrenado sobre habla y texto estándar,
+su aplicación directa requiere una capa de adaptación que tenga en cuenta el contexto
+multimodal de la sesión y no únicamente la etiqueta léxica del pictograma.
 
 \subsection{OE3: Modelos de análisis gramatical}
 
@@ -80,8 +83,9 @@ reglas simples. Un sistema de PLN y aprendizaje automático puede extraer con al
 precisión dimensiones lingüísticas análogas a las del protocolo PAALSS sobre habla 
 convencional, lo que respalda la viabilidad de este objetivo, aunque exige adaptar 
 dicho enfoque al canal multimodal del lenguaje asistido. Para las categorías morfológicas 
-con menor disponibilidad de ejemplos anotados, se adopta la estrategia de clasificación 
-\emph{few-shot} mediante \emph{Pattern-Exploiting Training} (\ac{PET}) sobre BETO.
+con menor disponibilidad de ejemplos anotados, se adopta la estrategia de clasificación
+\emph{few-shot} mediante \emph{Pattern-Exploiting Training} (\ac{PET}) sobre
+\emph{BETO}~\cite{fewshot_clinical_nlp,beto_morphological}.
 
 \subsection{OE4: Módulo de pre-rellenado del protocolo}
 
@@ -89,9 +93,9 @@ Desarrollar un módulo que genere automáticamente las métricas y tablas del pr
 forma trazable y exportable, de modo que cada valor propuesto pueda vincularse al
 enunciado o conjunto de enunciados que lo sustentan. Para ello se plantea una arquitectura
 de generación aumentada por recuperación (\emph{Retrieval-Augmented Generation}, \ac{RAG})
-\cite{rag_lewis2020} ejecutada mediante un modelo de lenguaje local sobre \emph{Ollama}, que
-recupera los Turnos Comunicativos relevantes y los emplea para fundamentar el
-pre-rellenado de cada campo del formulario. Esta aproximación replica, para el dominio del
+\cite{rag_lewis2020} ejecutada mediante un modelo de lenguaje local sobre
+\emph{Ollama}~\cite{ollama}, que recupera los Turnos Comunicativos relevantes y los emplea para 
+fundamentar el pre-rellenado de cada campo del formulario. Esta aproximación replica, para el dominio del
 protocolo \ac{PAALSS}, la viabilidad de la extracción estructurada con supervisión mínima que 
 en protocolos de ensayos clínicos.
 

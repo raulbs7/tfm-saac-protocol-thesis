@@ -1,0 +1,330 @@
+\chapter{Metodología}
+\label{chap:metodologia}
+
+El desarrollo de un sistema de inteligencia artificial aplicado a un dominio clínico
+requiere no solo decisiones técnicas sobre arquitecturas y algoritmos, sino también
+un marco metodológico que guíe el proceso desde la identificación del problema hasta
+el despliegue de una herramienta utilizable por los profesionales. Este capítulo
+describe la metodología adoptada en este trabajo, organizada en dos grandes bloques:
+la metodología de gestión del proyecto y el ciclo de vida del sistema de inteligencia
+artificial. A continuación se concretan los recursos hardware y software necesarios
+y se describe la arquitectura general del sistema propuesto.
+
+
+%% ============================================================
+\section{Metodología de gestión del proyecto}
+\label{sec:metodologia_gestion}
+%% ============================================================
+
+La gestión de un proyecto de \ac{IA} presenta diferencias sustanciales respecto a la
+de un proyecto de tecnología de la información convencional, derivadas del ciclo de
+vida específico de los sistemas de \ac{IA}, de sus riesgos particulares y de las
+implicaciones morales que conlleva el procesamiento de datos sensibles. Para
+estructurar la gestión de este trabajo se adopta como referencia el marco propuesto por
+Miller~\cite{miller2025framework}, que entrelaza el estándar de gestión de proyectos
+\emph{ISO 21502:2020-12} con el ciclo de vida de un sistema de \ac{IA} y con un
+conjunto de factores de éxito orientados a evitar daños, pérdidas y perjuicios. Este
+marco resulta especialmente pertinente en el presente trabajo porque los datos
+manejados corresponden a menores con discapacidad, lo que sitúa la dimensión ética y
+de protección de datos en el centro de todas las decisiones de diseño.
+
+La naturaleza exploratoria de este trabajo, combinada con la restricción de operar
+sobre un \emph{corpus} reducido de sesiones anotadas, aconseja un enfoque de desarrollo
+iterativo e incremental dentro de ese marco. Cada iteración tiene como salida un
+artefacto funcional y evaluable que puede ser revisado por el tutor y contrastado con
+las anotaciones expertas antes de avanzar a la siguiente fase. Este modelo evita
+comprometer recursos en el diseño de módulos completos antes de validar los supuestos
+sobre los que se apoyan, lo que resulta especialmente relevante cuando los datos
+disponibles son escasos y el dominio (lenguaje asistido por \ac{SAAC} en español)
+carece de herramientas previas con las que comparar.
+
+El desarrollo se organiza en fases que corresponden directamente a los objetivos
+específicos definidos en el capítulo anterior: la extracción de enunciados (OE1), el
+procesamiento lingüístico (OE2 y OE3), el pre-rellenado del protocolo (OE4) y la
+validación (OE5). Cada fase concluye con la evaluación cuantitativa del módulo
+desarrollado frente a las anotaciones del experto, lo que permite decidir de forma
+fundamentada si el módulo es suficiente para avanzar o requiere refinamiento adicional
+antes de integrarse en el \emph{pipeline} completo. Las tareas, plazos y dependencias
+entre módulos se han gestionado mediante un tablero de seguimiento con revisiones
+periódicas con el tutor.
+
+
+%% ============================================================
+\section{Ciclo de vida del sistema de inteligencia artificial}
+\label{sec:ciclo_vida_ia}
+%% ============================================================
+
+Los marcos de referencia internacionales para el desarrollo responsable de sistemas de
+\ac{IA} coinciden en estructurar el ciclo de vida en fases sucesivas que van desde la
+definición del problema hasta la operación continuada del sistema y sus consecuencias.
+Este ciclo de vida se divide en cuatro grandes etapas~\cite{miller2025framework}:
+planificación (\emph{Plan}), desarrollo (\emph{Development}), uso (\emph{Usage}) y
+consecuencias (\emph{Consequences}), subrayando que las repercusiones del sistema
+sobre las personas y el entorno se prolongan más allá de la finalización del proyecto
+de desarrollo. El \emph{Código de buenas prácticas para la \ac{IA} de uso general} de
+la Comisión Europea~\cite{eu_ai_code_practice} y el perfil de riesgo para \ac{IA}
+generativa del Instituto Nacional de Estándares y Tecnología de los Estados Unidos
+(\ac{NIST} AI 600-1)~\cite{nist_ai_600_1} complementan ese ciclo con directrices
+concretas sobre gobernanza, transparencia y mitigación de riesgos. Aunque este trabajo
+constituye un prototipo de investigación y no un sistema en producción regulado,
+adoptar estas directrices desde el inicio establece las bases para una eventual
+transferencia clínica responsable.
+
+A partir de estas referencias, el ciclo de vida del sistema desarrollado en este
+\ac{TFM} se concreta en cinco fases. La fase de \emph{Definición del caso de uso} se
+corresponde con la etapa de planificación; las fases de \emph{Selección de modelos} y
+\emph{Diseño del sistema} desarrollan la etapa de desarrollo; la fase de
+\emph{Evaluación} materializa la verificación y validación; y la fase de
+\emph{Despliegue y operación} cubre las etapas de uso y consecuencias del marco de
+Miller. Cada una de ellas se describe a continuación.
+
+
+\subsection{Definición del caso de uso}
+\label{subsec:caso_uso}
+
+El primer paso es delimitar con precisión qué problema resuelve el sistema, para quién
+y en qué condiciones de uso. En este trabajo, el caso de uso es {la asistencia al
+profesional de logopedia en la cumplimentación del protocolo \ac{PAALSS}} a partir de
+la grabación en vídeo de una sesión de comunicación asistida. El sistema actúa
+exclusivamente como herramienta de pre-anotación: propone valores para las métricas del
+protocolo, pero la decisión final sobre cada campo recae siempre en el especialista
+que valida y corrige el resultado. Esta definición establece también el límite de la
+responsabilidad del sistema y excluye explícitamente cualquier función de diagnóstico.
+
+El perfil del usuario final son los profesionales de \ac{SAAC} (logopedas,
+investigadores) con formación clínica pero sin necesidad de conocimientos de
+programación para operar la herramienta. La restricción de procesamiento local, impuesta
+por el \ac{RGPD} dado que los datos corresponden a menores con discapacidad, forma parte
+de la definición del caso de uso y condiciona de forma transversal toda la arquitectura
+técnica posterior.
+
+
+\subsection{Selección de modelos}
+\label{subsec:seleccion_modelos}
+
+La selección de los componentes de \ac{IA} del sistema responde a tres criterios
+simultáneos: adecuación técnica a la tarea, compatibilidad con el procesamiento
+completamente local y disponibilidad de versiones en español o con soporte multilingüe
+de calidad suficiente.
+
+Para la transcripción automática del habla se selecciona \emph{Whisper} en su variante
+\texttt{large-v3}~\cite{whisper_radford2023}, ejecutado localmente mediante la
+implementación \texttt{faster-whisper}, que reduce el consumo de memoria a través de
+cuantización en punto flotante de 16 bits sin pérdida apreciable de exactitud. Para la
+diarización de hablantes se emplea \emph{pyannote.audio} en su configuración
+\emph{pipeline} preentrenada~\cite{pyannote_plaquet2023}, complementada con el enfoque
+\textbf{DiCoW}~\cite{dicow_diarization} para la transcripción condicionada por hablante
+en escenarios de dos participantes.
+
+Para el procesamiento morfosintáctico del español se emplea \emph{spaCy} con el modelo
+\texttt{es\_core\_news\_lg}~\cite{spoken_spanish_pos} y \emph{Stanza}, combinados con
+el modelo \emph{BETO}~\cite{beto_morphological} para las categorías morfológicas
+ambiguas mediante aprendizaje con pocos ejemplos (\ac{PET})~\cite{fewshot_clinical_nlp}.
+Para el módulo de pre-rellenado del protocolo se adopta una arquitectura de generación
+aumentada por recuperación (\ac{RAG}) que combina una base de datos vectorial
+\emph{FAISS} con un modelo de lenguaje local ejecutado mediante
+\emph{Ollama}~\cite{ollama}.
+
+
+\subsection{Diseño del sistema}
+\label{subsec:design_sistema}
+
+El diseño del sistema integra los modelos seleccionados en un \emph{pipeline} modular
+y secuencial. La modularidad es un requisito de diseño explícito: permite sustituir
+o mejorar individualmente cada componente sin rediseñar el sistema completo, y facilita
+la evaluación aislada de cada módulo frente al criterio experto antes de la integración.
+
+La arquitectura general se organiza en cuatro capas funcionales. La primera capa
+realiza la extracción de enunciados a partir del vídeo de la sesión: extrae el audio,
+lo transcribe con \emph{Whisper} y combina la transcripción con la diarización de
+hablantes para producir una lista de Turnos Comunicativos atribuidos. La segunda capa
+aplica el procesamiento lingüístico sobre dichos Turnos: etiquetado \ac{POS}, análisis
+morfológico y detección de patrones sintácticos \ac{SVO}. La tercera capa calcula las
+métricas del protocolo \ac{PAALSS} a partir de los enunciados procesados: diversidad
+léxica, perfil morfológico, \ac{LME} y complejidad sintáctica. La cuarta capa aplica
+el módulo \ac{RAG} para traducir estas métricas en el llenado estructurado de los
+campos del formulario, fundamentando cada valor propuesto en los enunciados que lo
+originan.
+
+
+\subsection{Evaluación del sistema}
+\label{subsec:evaluacion}
+
+La evaluación sigue el protocolo de validación definido en el objetivo específico OE5.
+Cada módulo se evalúa por separado antes de su integración: la transcripción mediante
+la tasa de error de palabra (\ac{WER}) respecto a la transcripción manual de referencia;
+la diarización mediante \emph{Diarization Error Rate} (\ac{DER}); la clasificación
+morfológica y sintáctica mediante precisión, exhaustividad y F1 calculadas por
+categoría; y el pre-rellenado mediante el índice \emph{kappa de Cohen} calculado campo
+a campo respecto a las anotaciones del experto. Esta estrategia de evaluación modular
+permite identificar los cuellos de botella del sistema y orientar los esfuerzos de
+mejora de forma fundamentada.
+
+El \emph{corpus} de evaluación son las dos sesiones anotadas manualmente por la especialista
+de referencia (sesión 1: «¿Dónde están las hadas y la luna?»; sesión 2: «El ladrón de
+hojas»). El reducido tamaño del \emph{corpus}, consecuencia directa de la escasez de
+anotaciones expertas en este dominio, limita la generalización de los resultados y se
+discute explícitamente en el capítulo de conclusiones.
+
+
+\subsection{Despliegue y operación}
+\label{subsec:despliegue}
+
+El sistema se despliega como una aplicación de escritorio local que no requiere
+conexión a Internet. El profesional proporciona el vídeo de la sesión a través de una 
+interfaz gráfica sencilla y el sistema devuelve el formulario \ac{PAALSS} parcialmente 
+cumplimentado en un formato editable. Este producto final es
+un requisito del trabajo, ya que debe ofrecer una experiencia de usuario
+suficiente para que un clínico sin formación en programación pueda utilizarlo de forma
+autónoma.
+
+Para validar la utilidad del prototipo más allá de las métricas cuantitativas, se
+plantea la realización de una demostración en dos fases. En una primera fase interna,
+se presenta el prototipo al tutor y a colaboradores del proyecto para identificar
+errores de funcionamiento y aspectos de la interfaz que dificulten el uso. En una
+segunda fase, se presenta la demostración a profesionales de la \emph{Fábrica de
+Palabras} (asociación colaboradora que proporcionó los vídeos de la sesión), quienes
+valorarán la utilidad clínica percibida del pre-rellenado, la claridad de las
+propuestas del sistema y la facilidad de corrección de los campos incorrectos.
+
+
+%% ============================================================
+\section{Recursos hardware y software}
+\label{sec:recursos}
+%% ============================================================
+
+El procesamiento completamente local impone restricciones sobre los recursos hardware
+necesarios. Esta sección describe el entorno en el que se ha desarrollado y validado
+el sistema.
+
+
+\subsection{Recursos hardware}
+\label{subsec:hardware}
+
+El equipo de desarrollo es un ordenador personal con procesador \emph{Intel Core i7-11800H}
+(8 núcleos físicos, 2,3~GHz base), 32~GB de memoria RAM y tarjeta gráfica \textbf{NVIDIA
+GeForce RTX 3060} con 6~GB de VRAM. Esta configuración permite ejecutar el modelo
+\emph{Whisper} \texttt{large-v3} en \ac{GPU} con cuantización \texttt{float16},
+reduciendo el tiempo de transcripción de una sesión de 30 minutos a aproximadamente
+4--6 minutos. El modelo de lenguaje local empleado para el pre-rellenado \ac{RAG}
+(familia Llama 3 o equivalente a través de \emph{Ollama}) requiere como mínimo 8~GB de
+VRAM para ejecutarse en \ac{GPU}; con la configuración disponible se pueden utilizar
+modelos de 7~B de parámetros en cuantización de 4 bits. Los modelos de \ac{PLN}
+(\emph{spaCy}, \emph{Stanza}, \emph{BETO}) se ejecutan en \ac{CPU} y no imponen
+requisitos especiales de memoria gráfica.
+
+
+\subsection{Entorno software}
+\label{subsec:software}
+
+El entorno de desarrollo se basa en Python 3.11 con gestión de dependencias mediante
+\texttt{pip} y entornos virtuales. La Tabla~\ref{tab:dependencias} resume las
+principales bibliotecas empleadas en cada módulo del sistema.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{3.5cm}|L{4.0cm}|L{6.5cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Módulo} & \bft{Biblioteca / herramienta} & \bft{Función principal} \\ \hline
+  Extracción de audio    & \texttt{ffmpeg}                  & Conversión de vídeo a WAV 16~kHz mono \\ \hline
+  Transcripción \ac{ASR} & \texttt{faster-whisper}          & Transcripción local con Whisper large-v3 \\ \hline
+  Diarización            & \texttt{pyannote.audio}          & Separación de hablantes \\ \hline
+  \ac{PLN} español       & \texttt{spaCy}, \texttt{Stanza}  & Etiquetado \ac{POS} y morfología \\ \hline
+  \ac{PLN} few-shot      & \texttt{transformers} + BETO     & Clasificación morfológica con \ac{PET} \\ \hline
+  Vocabulario \ac{SAAC}  & \texttt{rapidfuzz}               & Corrección fonética y búsqueda difusa \\ \hline
+  Base vectorial         & \texttt{faiss-cpu}               & Indexación de \emph{embeddings} para \ac{RAG} \\ \hline
+  \ac{LLM} local         & \texttt{ollama} (SDK Python)     & Generación de texto para pre-rellenado \\ \hline
+  Análisis de datos      & \texttt{pandas}, \texttt{numpy}  & Cálculo de métricas \\ \hline
+  Interfaz gráfica       & \texttt{streamlit}               & \emph{Demo} de escritorio local \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[Dependencias software]{Principales dependencias software del sistema.}
+  \label{tab:dependencias}
+  \renewcommand{\arraystretch}{1}
+\end{table}
+
+El sistema operativo del entorno de desarrollo es Windows 11 con acceso a \ac{GPU}
+mediante CUDA 12.x.
+
+
+%% ============================================================
+\section{Descripción del \emph{pipeline} de procesamiento}
+\label{sec:pipeline}
+%% ============================================================
+
+Esta sección detalla el diseño técnico de cada fase del \emph{pipeline}, en
+correspondencia con los objetivos específicos definidos en el capítulo anterior.
+
+
+\subsection{OE1: Extracción automática de enunciados}
+\label{subsec:oe1_pipeline}
+
+La extracción de Turnos Comunicativos a partir del vídeo de la sesión se lleva a cabo
+en tres etapas secuenciales. En primer lugar, \texttt{ffmpeg} extrae el canal de audio
+del vídeo y lo convierte a WAV mono de 16~kHz, que es el formato esperado por
+\emph{Whisper}~\cite{whisper_radford2023}. En segundo lugar, \emph{Whisper} transcribe
+el audio completo de la sesión y produce una lista de segmentos con su transcripción y
+sus marcas temporales de inicio y fin. En esta fase se emplea un \emph{prompt} inicial
+construido dinámicamente a partir del vocabulario del tablero de comunicación de la
+usuaria, con el objetivo de reducir los errores fonéticos de \emph{Whisper} sobre
+palabras propias del lenguaje asistido. En tercer lugar,
+\emph{pyannote.audio}~\cite{pyannote_plaquet2023} diariza el audio y asigna a cada
+segmento de tiempo una etiqueta de hablante (usuaria del \ac{SAAC} o interlocutor). La
+fusión de la transcripción de \emph{Whisper} con la diarización de \emph{pyannote}
+produce la lista de Turnos Comunicativos atribuidos.
+
+Un reto específico de este dominio es la recuperación de los enunciados del comunicador
+electrónico: la voz sintetizada que emite el dispositivo es asignada erróneamente por
+el diarizador al clúster del interlocutor adulto, dado que ambas voces son fluidas. 
+Para mitigar este efecto se ha diseñado un módulo de recuperación por eco
+que detecta segmentos candidatos a síntesis de voz del comunicador (mediante una
+puntuación ponderada de duración, número de palabras y coincidencia con el vocabulario
+\ac{ARASAAC}) y los reasigna a la usuaria cuando aparecen seguidos de un eco del
+interlocutor en la ventana de 8~segundos posterior.
+
+
+\subsection{OE2 y OE3: Análisis lingüístico}
+\label{subsec:oe2_oe3_pipeline}
+
+Una vez obtenidos los Turnos Comunicativos de la usuaria, el módulo de procesamiento
+lingüístico aplica sobre cada enunciado las siguientes operaciones. En primer lugar,
+\emph{spaCy} con el modelo \texttt{es\_core\_news\_lg} etiqueta cada \emph{token} con
+su categoría gramatical (\ac{POS}) y su lema, y realiza el análisis de dependencias
+sintácticas. En segundo lugar, para las categorías morfológicas que presentan alta
+ambigüedad sobre lenguaje asistido, como la distinción entre presente y pasado en
+verbos en forma de cita, se aplica \ac{PET} sobre \emph{BETO}: el modelo recibe una
+plantilla de texto que contextualiza la categoría a predecir y devuelve la etiqueta
+morfológica más probable a partir de entre 20 y 50 ejemplos anotados por la experta.
+En tercer lugar, el módulo de sintaxis detecta la presencia del patrón \ac{SVO} en
+cada enunciado mediante heurísticos sobre el árbol de dependencias.
+
+
+\subsection{OE4: Pre-rellenado del protocolo}
+\label{subsec:oe4_pipeline}
+
+El módulo de pre-rellenado traduce los enunciados procesados y las métricas calculadas
+en propuestas de valores para los campos del formulario \ac{PAALSS}. La \emph{arquitectura
+\ac{RAG}} recupera, para cada campo del formulario, los enunciados más relevantes de la
+sesión y los suministra como contexto a un modelo de lenguaje local ejecutado mediante
+\emph{Ollama}~\cite{ollama}. El modelo genera la propuesta de valor para el campo con
+la instrucción explícita de basar la respuesta exclusivamente en los enunciados
+recuperados y de indicar la ausencia de información cuando el contexto no sea
+suficiente. La base de datos vectorial \emph{FAISS} almacena los \emph{embeddings} de
+los enunciados y permite la recuperación eficiente por similitud semántica.
+
+El resultado del módulo es un documento estructurado con las propuestas de valores para
+cada campo del formulario \ac{PAALSS}, las métricas calculadas y los fragmentos de
+evidencia que sustentan cada propuesta. Esto ofrece trazabilidad completa al profesional
+que debe revisar y validar el pre-rellenado propuesto.
+
+
+% Local Variables:
+%  coding: utf-8
+%  mode: latex
+%  mode: flyspell
+%  ispell-local-dictionary: "castellano8"
+% End:

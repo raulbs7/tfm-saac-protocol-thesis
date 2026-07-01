@@ -47,8 +47,20 @@ ser corta.
 \label{subsec:lenguaje_asistido}
 
 El lenguaje producido con \ac{SAAC} presenta rasgos estructurales que lo diferencian
-cualitativamente del habla natural~\cite{nlp_aac_application}.  Entre los más
-estudiados se encuentran:
+cualitativamente del habla natural~\cite{nlp_aac_application}. La
+Figura~\ref{fig:tablero_arasaac} muestra un ejemplo de tablero de comunicación basado
+en el catálogo de pictogramas de \ac{ARASAAC}, en el que cada celda contiene un
+símbolo gráfico y su etiqueta en texto, que el usuario selecciona de forma secuencial
+para construir su mensaje. Entre los rasgos más estudiados del lenguaje asistido se
+encuentran:
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.4\textwidth]{figs/tablero_arasaac.png}
+  \caption{Ejemplo de tablero de comunicación basado en pictogramas \ac{ARASAAC}.
+  Fuente: \ac{ARASAAC} (\url{https://arasaac.org})}
+  \label{fig:tablero_arasaac}
+\end{figure}
 
 \begin{itemize}
   \item \emph{Enunciados telegráficos.} Los usuarios tienden a emitir 
@@ -267,18 +279,85 @@ Se han identificado tres retos específicos del LSA en poblaciones pediátricas 
 \label{sec:fewshot}
 %% ============================================================
 
-Uno de los principales obstáculos para aplicar \ac{PLN} a dominios clínicos especializados
-es la escasez de datos etiquetados: las anotaciones requieren conocimiento experto costoso,
-y las restricciones de privacidad limitan la disponibilidad de corpus. El aprendizaje con
-pocos ejemplos (\emph{few-shot learning}) y el prompting son estrategias que permiten
-aprovechar modelos de lenguaje preentrenados con mínima supervisión adicional.
+Uno de los principales obstáculos para aplicar \ac{PLN} a dominios clínicos
+especializados es la \textbf{escasez de datos etiquetados}: las anotaciones requieren
+conocimiento experto costoso y tiempo considerable, mientras que las restricciones de
+privacidad y la rareza de las condiciones estudiadas limitan la disponibilidad de
+\emph{corpus} públicos. En el caso del lenguaje asistido por \ac{SAAC} en español esta
+restricción es especialmente severa: no existe ningún corpus anotado
+morfosintácticamente de acceso público, y la anotación del protocolo \ac{PAALSS}
+requiere un especialista con formación específica en \ac{SAAC}. El aprendizaje con
+pocos ejemplos (\emph{few-shot learning}) es la familia de técnicas que aborda
+precisamente este escenario, permitiendo aprovechar modelos de lenguaje preentrenados
+con una supervisión adicional mínima.
 
-El método propuesto, \textbf{\ac{PET}} (\emph{Pattern-Exploiting Training}), reformula la clasificación
-como un problema de modelado de lenguaje enmascarado: dado un texto, el modelo predice el
-token más probable en una posición \texttt{[MASK]} según una plantilla diseñada para el propio
-dominio.  Con tan solo 20 ejemplos por clase, PET combinado con un modelo BERT adaptado
-al dominio médico supera a clasificadores supervisados tradicionales, elevando la precisión
-del 46\% al 79{,}1\% \cite{fewshot_clinical_nlp}.
+En el caso del lenguaje asistido por \ac{SAAC}, la escasez de datos se agrava por la
+naturaleza misma del canal de comunicación: los pictogramas siempre representan la
+\textbf{forma de cita} (infinitivo para los verbos, singular para sustantivos y adjetivos),
+por lo que la información morfológica flexiva nunca está codificada explícitamente en
+el texto producido. El sistema debe inferir, a partir del contexto conversacional, si
+una forma como \emph{comer} corresponde a un presente habitual, a un imperativo o a
+una referencia temporal pasada. Esta ambigüedad sistemática requiere un clasificador
+capaz de operar con un número muy reducido de ejemplos anotados por un especialista
+en \ac{SAAC}, lo que sitúa el aprendizaje con pocos ejemplos como la estrategia
+natural para este dominio.
+
+En el contexto de los modelos de lenguaje basados en \emph{Transformer}, pueden
+distinguirse dos estrategias principales. El \emph{in-context learning} consiste en
+incluir directamente en el \emph{prompt} varios ejemplos del formato \textbf{entrada-etiqueta}
+y dejar que el modelo infiera el patrón sin actualizar ningún parámetro; esta
+estrategia es característica de los modelos generativos de gran escala (\ac{LLM} de
+centenares de miles de millones de parámetros) y resulta difícil de aplicar de forma
+local por sus requisitos computacionales. Por otro lado, el ajuste fino
+(\emph{fine-tuning}) sobre un conjunto reducido de ejemplos puede causar
+sobreajuste y degradar las representaciones aprendidas durante el preentrenamiento,
+en especial cuando solo se dispone de decenas de instancias por clase. Entre ambos
+extremos, los métodos de aprendizaje con pocos ejemplos basados en modelos de lenguaje
+enmascarado (\emph{Masked Language Model}, \ac{MLM}) ofrecen un equilibrio adecuado
+para dominios clínicos de pequeño volumen.
+
+El modelo \emph{BETO}~\cite{beto_morphological} es un modelo de tipo \emph{BERT}
+preentrenado sobre más de 3 GB de texto en español procedentes de la Wikipedia y del
+corpus \emph{BooksCorpus}, lo que lo convierte en la referencia para tareas de \ac{PLN}
+en español que requieren comprensión morfológica y sintáctica profunda. \emph{BETO} ha
+demostrado superar a los modelos multilingües en tareas de clasificación, etiquetado y
+análisis sintáctico sobre el español, y resulta especialmente apropiado para el análisis
+del lenguaje asistido porque su arquitectura de tipo \ac{MLM} admite la incorporación
+de plantillas de clasificación con muy pocos ejemplos.
+
+El método \textbf{\ac{PET}} (\emph{Pattern-Exploiting Training})~\cite{fewshot_clinical_nlp}
+reformula la tarea de clasificación como un problema de modelado de lenguaje enmascarado:
+dado un texto de entrada, se construye una plantilla (\emph{pattern}) que inserta el
+texto en una oración incompleta, y se designa un verbalizador (\emph{verbalizer}) que
+mapea las etiquetas de clase a \emph{tokens} concretos del vocabulario del modelo. El modelo
+predice el \emph{token} más probable en la posición \texttt{[MASK]} y la clase predicha es la
+etiqueta correspondiente al \emph{token} ganador. Este enfoque no requiere modificar la cabeza
+de clasificación del modelo: se aprovecha directamente la distribución de probabilidad
+del \ac{MLM} sobre el vocabulario del modelo base. Cuando se dispone de varios patrones
+alternativos para una misma tarea, los predicciones de cada plantilla se combinan
+mediante un proceso de destilación en un clasificador suave, lo que reduce la varianza
+debida a la elección de una única plantilla.
+
+Los resultados reportados en un entorno clínico de recursos limitados son altamente relevantes 
+para este trabajo~\cite{fewshot_clinical_nlp}: con tan solo 20 ejemplos anotados por clase, 
+\ac{PET} aplicado sobre un modelo \emph{BERT} adaptado al dominio médico eleva la precisión 
+de la clasificación del 46\% al 79{,}1\% obtenida con un clasificador supervisado convencional 
+sobre el mismo número de ejemplos. Esta ganancia de 33 puntos porcentuales con igual volumen de supervisión 
+respalda la adopción de \ac{PET} sobre \emph{BETO} para el análisis de las categorías
+morfológicas del lenguaje asistido en español, donde el número de ejemplos anotados
+disponibles es del mismo orden de magnitud.
+
+Estos resultados se alinean con la observación de Gorman~\cite{lsa_morphological_auto},
+en los que se demostró que sistemas de reglas simples pueden superar al aprendizaje
+automático supervisado cuando el \emph{corpus} de entrenamiento es reducido, y que la
+combinación de reglas con modelos estadísticos permite alcanzar una precisión cercana
+a la del anotador experto. Por este motivo, el sistema propuesto en este trabajo adopta
+un enfoque híbrido: las categorías morfológicas con criterios explícitos, como la
+distinción entre nombre y verbo en pictogramas de función semántica inequívoca, se
+resuelven mediante heurísticos basados en el vocabulario \ac{ARASAAC}, reservando
+\ac{PET} sobre \emph{BETO} únicamente para las categorías que presentan \textbf{ambigüedad
+dependiente del contexto}, como la modalidad verbal o el tiempo gramatical inferido a
+partir del enunciado del interlocutor.
 
 %% ============================================================
 \section{Generación Aumentada por Recuperación (RAG)}
@@ -298,18 +377,40 @@ documentos extensos y de dominio específico, donde la respuesta a una pregunta 
 existe en el documento pero localizarla manualmente requiere leer y comprender el texto
 completo.
 
-La arquitectura de un sistema RAG se organiza habitualmente en cuatro fases. 
-En primer lugar, el documento se segmenta en fragmentos (\emph{chunks}) de tamaño manejable, 
-normalmente con cierto solapamiento entre fragmentos consecutivos para preservar el contexto 
-en los límites de cada segmento. A continuación, cada fragmento se vectoriza mediante un 
-modelo de \emph{embeddings} de frases y se almacena en una base de datos vectorial, que
-permite la búsqueda eficiente por similitud semántica. Para cada consulta o campo a
-rellenar, una etapa de recuperación (\emph{retrieval}) extrae los $k$ fragmentos más
-similares mediante similitud coseno entre el \emph{embedding} de la consulta y los del
-documento. Por último, el \ac{LLM} recibe un \emph{prompt} estructurado con los fragmentos
-recuperados como contexto y genera la respuesta fundamentada exclusivamente en ellos, con
-la instrucción explícita de señalar la ausencia de información cuando los fragmentos
-recuperados no contengan la respuesta.
+La arquitectura de un sistema \ac{RAG} se organiza habitualmente en cuatro fases.
+En primer lugar, el documento se segmenta en fragmentos (\emph{chunks}) de tamaño
+manejable, normalmente con cierto solapamiento entre fragmentos consecutivos para
+preservar el contexto en los límites de cada segmento. A continuación, cada fragmento
+se vectoriza mediante un modelo de \emph{embeddings} de frases y se almacena en una
+base de datos vectorial que permite la búsqueda eficiente por similitud semántica; en
+implementaciones locales se emplea habitualmente \emph{FAISS}
+(\emph{Facebook AI Similarity Search}), una biblioteca de código abierto optimizada
+para la búsqueda por vecinos más próximos en espacios vectoriales de alta dimensión.
+Para cada consulta o campo a rellenar, una etapa de recuperación (\emph{retrieval})
+extrae los $k$ fragmentos más similares mediante similitud coseno entre el
+\emph{embedding} de la consulta y los del documento. Por último, el \ac{LLM} recibe
+un \emph{prompt} estructurado con los fragmentos recuperados como contexto y genera la
+respuesta fundamentada exclusivamente en ellos, con la instrucción explícita de señalar
+la ausencia de información cuando los fragmentos recuperados no contengan la respuesta.
+
+La viabilidad de esta arquitectura para la extracción de información en protocolos
+clínicos ha sido validada empíricamente por Babaeipour~\cite{clinical_nlp_ai_protocol}: en este
+estudio se comparó un \ac{LLM} autónomo con un sistema \ac{RAG} sobre la tarea de
+extraer información estructurada de protocolos de ensayos clínicos, y el enfoque \ac{RAG}
+alcanzó una exactitud del 89\% frente al 62{,}6\% del \ac{LLM} sin recuperación,
+reduciendo además de forma sustancial las confabulaciones (\emph{hallucinations}).
+Estos resultados confirman que anclar la generación en fragmentos recuperados del
+documento de referencia es la estrategia adecuada cuando se requiere que las respuestas
+sean trazables y verificables, una propiedad imprescindible en un sistema de asistencia
+a la cumplimentación de un protocolo clínico como el \ac{PAALSS}.
+
+En el contexto de este trabajo, la restricción de procesamiento local impuesta por el
+\ac{RGPD} descarta el uso de \ac{LLM} accesibles únicamente a través de \ac{API}
+externas. La herramienta \emph{Ollama}~\cite{ollama} permite ejecutar localmente
+modelos de la familia \emph{Llama} y similares sin ejecutarlos en la nube, ofreciendo una
+interfaz de \ac{API} compatible con los estándares habituales de integración, lo que
+facilita la sustitución del modelo por versiones más actualizadas a medida que la
+investigación avance.
 
 
 %% ============================================================
@@ -325,17 +426,35 @@ directamente las grabaciones de vídeo de las sesiones de comunicación asistida
 \subsection{Reconocimiento automático del habla con Whisper}
 \label{subsec:whisper}
 
-\emph{Whisper}~\cite{whisper_diarization_realtime} es un modelo \ac{ASR} de \emph{OpenAI} 
-basado en la arquitectura \emph{Transformer encoder-decoder}, preentrenado sobre 680.000 
-horas de audio procedentes de Internet y capaz de transcribir y traducir hasta 98 idiomas. 
-Su diseño multitarea y la amplitud de los datos de preentrenamiento le confieren una capacidad de
-generalización notable, incluyendo acentos, ruido de fondo y registros informales.
+\emph{Whisper}~\cite{whisper_radford2023} es un modelo \ac{ASR} desarrollado por
+\emph{OpenAI} basado en la arquitectura \emph{Transformer encoder-decoder},
+preentrenado mediante supervisión débil a gran escala: los 680.000 horas de audio de
+entrenamiento proceden de Internet y se emparejan automáticamente con sus
+transcripciones en múltiples idiomas, lo que elimina la necesidad de anotación manual
+masiva y dota al modelo de una capacidad de generalización notable sobre acentos, ruido
+de fondo y registros informales~\cite{whisper_radford2023}. El modelo es capaz de
+transcribir y traducir hasta 98 idiomas, incluyendo el español, y supera o iguala el
+estado del arte en varios \emph{benchmarks} de robustez sin ajuste fino específico.
 
-El modelo existe en varias configuraciones de tamaño: \texttt{tiny} (39 M parámetros),
-\texttt{base} (74 M), \texttt{small} (244 M), \texttt{medium} (769 M) y \texttt{large}
-(1.550 M). La variante \texttt{small} ha demostrado ser un compromiso adecuado entre
+El modelo existe en varias configuraciones de tamaño: \texttt{tiny} (39~M parámetros),
+\texttt{base} (74~M), \texttt{small} (244~M), \texttt{medium} (769~M) y \texttt{large}
+(1.550~M). La variante \texttt{small} ha demostrado ser un compromiso adecuado entre
 precisión y coste computacional en aplicaciones de análisis del lenguaje clínico que
-requieren despliegue local~\cite{lsa_swiss_benchmark}.
+requieren despliegue local~\cite{lsa_swiss_benchmark,whisper_diarization_realtime},
+mientras que la variante \texttt{large-v3} ofrece la mayor exactitud disponible y
+resulta adecuada cuando el equipo dispone de \ac{GPU} con al menos 6~GB de VRAM. Para
+el despliegue local eficiente se emplea \texttt{faster-whisper}, una reimplementación
+de \emph{Whisper} en \emph{CTranslate2} que reduce el consumo de memoria mediante
+cuantización en coma flotante de 16 bits y permite ejecutar el modelo \texttt{large-v3}
+en \ac{GPU} con un consumo inferior a 6 GB de VRAM.
+
+Un aspecto relevante para las sesiones de comunicación asistida es que la voz
+producida por el dispositivo generador de voz (\ac{TTS}) del comunicador electrónico
+difiere acústicamente de la voz humana natural: es más uniforme, sin variaciones de
+entonación ni disfluencias. \emph{Whisper} transcribe correctamente los fragmentos de
+\ac{TTS}, pero los modelos de diarización pueden tender a asignar estos fragmentos al clúster
+del interlocutor adulto en lugar de al usuario del \ac{SAAC}, lo que requiere un
+postprocesado específico descrito en el capítulo de metodología.
 
 
 \subsection{Diarización de hablantes}
@@ -358,7 +477,68 @@ máscaras STNO y mecanismos de \emph{Query-Key Biasing} y \emph{Frame-Level
 Diarization-Dependent Transformations}~\cite{dicow_diarization}, evitando así el
 enrolamiento del hablante objetivo, aunque requiere una etapa externa de diarización y un
 ajuste fino sobre corpus en inglés alejados de las condiciones acústicas de una sesión
-infantil en español. Un tercer enfoque, \emph{pyannote.audio}, es una herramienta de
-propósito general que no requiere ajuste fino ni enrolamiento y se distribuye como
-\emph{pipeline} preentrenado de uso directo, lo que la hace adecuada para escenarios fijos
-de dos hablantes sin restricciones de latencia.
+infantil en español. Un tercer enfoque, \emph{pyannote.audio}~\cite{pyannote_plaquet2023}, es una
+herramienta de propósito general que no requiere ajuste fino ni enrolamiento y se
+distribuye como \emph{pipeline} preentrenado de uso directo, lo que la hace adecuada
+para escenarios fijos de dos hablantes sin restricciones de latencia. Su arquitectura
+combina segmentación a nivel de \emph{frame}, extracción de \emph{embeddings} de
+hablante y \emph{clustering} jerárquico aglomerativo, y está implementada como
+librería Python de código abierto con modelos preentrenados disponibles en
+\emph{HuggingFace}.
+
+
+%% ============================================================
+\section{Síntesis comparativa}
+\label{sec:comparativa}
+%% ============================================================
+
+La revisión realizada en este capítulo pone de manifiesto que los trabajos existentes
+abordan componentes aislados del problema pero ninguno integra todos los elementos
+necesarios para la automatización del protocolo \ac{PAALSS} en español: la extracción
+de enunciados desde vídeo, el procesamiento morfosintáctico del lenguaje asistido, el
+cálculo de las métricas del protocolo y el pre-rellenado del formulario clínico. La
+Tabla~\ref{tab:comparativa} resume las principales herramientas y enfoques revisados
+en relación con las dimensiones más relevantes para este trabajo.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{2.1cm}|C{1.4cm}|C{1.7cm}|C{1.4cm}|C{1.3cm}|C{1.2cm}|L{4.0cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Herramienta} & \bft{Idioma} & \bft{Entrada} & \bft{Transcr.\ auto.} & \bft{Morfol.\ auto.} & \bft{Adapt.\ SAAC} & \bft{Limitación principal} \\ \hline
+  SALT & EN / ES & Texto manual & No & Parcial & No &
+  Requiere transcripción y codificación manual; bases de datos normativas solo en inglés \\ \hline
+  CLAN / Batchalign & EN & Texto / Audio & Sí & Sí & No &
+  Diseñado para habla oral típica en inglés; no contempla pictogramas ni lenguaje telegráfico \\ \hline
+  SUGAR & EN & Texto manual & No & No & No &
+  Método manual simplificado; no detecta errores gramaticales ni calcula morfemas \\ \hline
+  LLUNA & EN & Texto manual & No & Parcial & No &
+  Limitado a narrativas; sin componente multimodal ni adaptación al español \\ \hline
+  Medidas LSA/TEA & EN & Texto manual & No & Sí & No &
+  Diseñado para \ac{TEA}; no adaptado a \ac{SAAC} ni al español \\ \hline
+  Benchmark PLN infantil & DE/FR/\,IT & Texto & No & Sí & No &
+  Habla infantil típica en lenguas suizas; sin canal de vídeo ni lenguaje asistido \\ \hline
+  \rowcolor{tema!10}
+  \bft{Este trabajo} & \bft{ES} & \bft{Vídeo} & \bft{Sí} & \bft{Sí} & \bft{Sí} &
+  Validado sobre una única usuaria; canal visual (pictogramas) pendiente de implementar \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[Comparativa de herramientas]{Comparativa de herramientas y enfoques de análisis automático del lenguaje.}
+  \label{tab:comparativa}
+  \renewcommand{\arraystretch}{1}
+\end{table}
+
+De la comparativa se extraen tres conclusiones que fundamentan las decisiones de diseño
+del sistema propuesto. En primer lugar, todas las herramientas existentes para el
+\ac{LSA} automático operan sobre texto ya transcrito, sin abordar la extracción de
+enunciados desde vídeo, lo que constituye la diferencia más radical del presente
+trabajo. En segundo lugar, ninguna herramienta revisada ha sido diseñada o adaptada
+para el lenguaje asistido por \ac{SAAC}, lo que implica que las métricas calculadas
+sobre habla oral típica no son directamente transferibles. En tercer lugar, la barrera
+del idioma es un obstáculo transversal: todos los sistemas con automatización completa
+están diseñados y validados para el inglés, lo que justifica la elección de modelos
+específicos para el español como \emph{BETO} y \texttt{es\_core\_news\_lg} y la
+restricción del alcance del trabajo a una única lengua.
