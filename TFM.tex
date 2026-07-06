@@ -17,6 +17,9 @@
 % -------------------------------
 \input{include/configuracion}
 
+% Definiciones de acrónimos (antes de \begin{document})
+\input{elements/acronimos}
+
 % Documento
 \begin{document}
 
@@ -49,6 +52,8 @@
 \listoftables		% Índice de tablas
 \listofalgorithms   % Índice de algoritmos (comentar si no los hay)
 \listofcodes	    % Índice de códigos (comentar si no los hay)
+\printacronyms[name=Lista de acrónimos, heading=chapter*]
+\addcontentsline{toc}{chapter}{Lista de acrónimos}
 \cleardoublepage
 
 % Vuelve a interlineado de 1.5
@@ -74,11 +79,8 @@
 % Metodología
 \input{chapters/metodologia}
 
-% Algunos elementos
-\input{chapters/ch2}
-
-% Utilidades para anotaciones
-\input{chapters/ch3} 
+% Desarrollo y resultados
+\input{chapters/desarrollo}
 
 % -------------------------------
 % Apéndices

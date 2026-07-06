@@ -8,17 +8,42 @@ limitaciones que aún persisten. En el ámbito de la comunicación aumentativa y
 alternativa, la distancia entre lo que la tecnología puede ofrecer y lo que los
 clínicos necesitan sigue siendo considerable, en particular para el español.
 
+Las herramientas consolidadas de análisis automático de muestras de lenguaje —como
+\ac{SALT}, \ac{CLAN} o \ac{SUGAR}— han sido desarrolladas íntegramente en inglés y para
+habla oral típica, sin contemplar ni el español ni los rasgos específicos del lenguaje
+producido mediante pictogramas~\cite{lsa_computer_programs}. Esta carencia no es trivial:
+el lenguaje asistido difiere estructuralmente del habla espontánea en aspectos que afectan
+directamente a la segmentación de enunciados, al etiquetado morfosintáctico y al cálculo
+de métricas de diversidad léxica. Paralelamente, los modelos de \ac{PLN} disponibles en
+español no han sido evaluados sobre corpus de lenguaje asistido, por lo que su aplicación
+directa en este dominio entraña riesgos de error sistemático que deben conocerse antes de
+adoptarlos. La ausencia de herramientas validadas para el \ac{PAALSS} en español justifica
+así la necesidad de una revisión crítica de los trabajos existentes y de las decisiones
+de diseño que de ella se derivan.
+
+Este trabajo se sitúa en la intersección de cuatro ámbitos de investigación que raramente
+convergen: la clínica del lenguaje asistido por \ac{SAAC}, el análisis automático de
+muestras de lenguaje, el procesamiento morfosintáctico del español con escasos recursos y
+los sistemas de generación aumentada por recuperación (\ac{RAG}) aplicados a documentación
+clínica. Comprender qué ha alcanzado cada uno de estos campos de forma independiente, y
+qué brechas permanecen abiertas en su intersección, es condición necesaria para justificar
+las decisiones de diseño del sistema propuesto y para interpretar con rigor sus resultados.
+
 Este capítulo revisa el estado del arte en los campos que confluyen en este trabajo.
-En primer lugar se describe el marco clínico: los \textbf{\ac{SAAC}}, las características
-lingüísticas del lenguaje que producen sus usuarios y el \textbf{protocolo de Gloria Soto}
-(\ac{PAALSS}) que se pretende automatizar. A continuación se analizan las iniciativas
-de análisis automático de muestras de lenguaje (\emph{Language Sample Analysis}, LSA),
-tanto las herramientas clásicas como las propuestas más recientes basadas en \ac{PLN} y
-aprendizaje profundo. Por último, se han revisado las técnicas de aprendizaje con pocos
-ejemplos en entornos clínicos, los sistemas de extracción de información, y los avances 
-actuales en transcripción automática y diarización de hablantes, elementos todos ellos necesarios para el pipeline propuesto en este trabajo.
+En la Sección~\ref{sec:saac} se describe el marco clínico: los \textbf{\ac{SAAC}}, las
+características lingüísticas del lenguaje que producen sus usuarios y el
+\textbf{protocolo de Gloria Soto} (\ac{PAALSS}) que se pretende automatizar, con el objeto
+de delimitar con precisión el problema que aborda el sistema. La Sección~\ref{sec:lsa_automatico}
+analiza las iniciativas de \ac{LSA}, tanto las herramientas clásicas como las propuestas más
+recientes basadas en \ac{PLN} y aprendizaje profundo, identificando los aspectos que no se
+transfieren directamente al lenguaje asistido en español. Las secciones siguientes revisan
+las técnicas de aprendizaje con pocos ejemplos en entornos clínicos, los sistemas de
+generación aumentada por recuperación aplicados a protocolos médicos y los avances en
+transcripción automática y diarización de hablantes, todos ellos componentes del
+\emph{pipeline} propuesto en este trabajo.
 
 
+\newpage
 %% ============================================================
 \section{Sistemas de Comunicación Aumentativa y Alternativa}
 \label{sec:saac}
@@ -129,7 +154,7 @@ según las cuatro dimensiones y calcule las métricas globales.  Este proceso pu
 extenderse varias horas por sesión, lo que constituye la principal barrera para su uso
 sistemático en la práctica clínica y educativa~\cite{lsa_computer_programs}.
 
-
+\newpage
 %% ============================================================
 \section{Análisis automático de muestras de lenguaje}
 \label{sec:lsa_automatico}
@@ -213,6 +238,7 @@ que su transferencia directa a lenguaje asistido en español requiere adaptació
 sustancial y validación del proceso.
 
 
+\newpage
 %% ============================================================
 \section{PLN aplicado a lenguaje atípico}
 \label{sec:pln_atipico}
@@ -227,30 +253,38 @@ revisa los avances más relevantes para este trabajo.
 \subsection{Modelos de lenguaje y análisis morfosintáctico en español}
 \label{subsec:pln_espanol}
 
-Para el análisis morfosintáctico del español existen varias herramientas de referencia.
-\emph{spaCy}~\cite{lsa_swiss_benchmark} ofrece modelos estadísticos y de redes neuronales para
-el etiquetado \ac{POS}, el análisis de dependencias y el reconocimiento de entidades.
+Las dos herramientas de referencia para el análisis morfosintáctico del español son
+\emph{spaCy}~\cite{lsa_swiss_benchmark} y \emph{Stanza}. \emph{spaCy} ofrece modelos basados
+en redes neuronales para el etiquetado \ac{POS}, el análisis de dependencias y el
+reconocimiento de entidades; su modelo \texttt{es\_core\_news\_lg} combina vectores de
+palabras preentrenados con una red convolucional de secuencias y constituye la implementación
+de referencia para el español en tareas industriales y de investigación. \emph{Stanza},
+desarrollado por el grupo de \ac{PLN} de Stanford, incorpora modelos preentrenados sobre los
+corpus \emph{Universal Dependencies} en español y proporciona soporte nativo para lematización
+y análisis de dependencias. Ambas herramientas están disponibles como bibliotecas \emph{Python} de
+código abierto y no requieren infraestructura remota, lo que las hace compatibles con el
+requisito de procesamiento local de este trabajo.
 
-\emph{BETO}~\cite{beto_morphological} es un modelo tipo \emph{BERT} preentrenado sobre el corpus
-\emph{BooksCorpus} en español más la Wikipedia española (3~GB), que ha demostrado mejorar el
-rendimiento en tareas de clasificación de secuencias, etiquetado de secuencias y análisis
-sintáctico en español respecto a los modelos multilingües.
+Su rendimiento, sin embargo, cae de forma sistemática al alejarse del texto escrito formal.
+El estudio de Bonilla~\cite{spoken_spanish_pos} presenta COSER-PoS, un corpus anotado
+manualmente sobre transcripciones de habla oral espontánea en español, y reporta que
+\emph{spaCy} alcanza una exactitud de entre 0{,}90 y 0{,}93 sobre este corpus, frente al
+0{,}98--0{,}99 que obtiene sobre \emph{AnCora}, el corpus de texto escrito estándar. Esta
+caída de entre cinco y ocho puntos porcentuales se concentra en las categorías funcionales
+(determinantes, preposiciones y morfemas verbales) y se debe principalmente a la mayor
+frecuencia de estructuras incompletas y de vocabulario infrecuente en el habla espontánea.
+Para el lenguaje asistido por \ac{SAAC} la degradación puede ser aún mayor: la ausencia de
+morfología flexiva, el orden de palabras atípico y el vocabulario restringido al catálogo de
+pictogramas generan distribuciones de \emph{tokens} que se alejan significativamente de los
+corpus de entrenamiento de ambos modelos.
 
-Para el etiquetado \ac{POS} del habla espontánea en español,~\cite{spoken_spanish_pos}
-se publicó COSER-PoS, un conjunto de datos de referencia anotado manualmente sobre
-transcripciones de habla oral espontánea que permite evaluar sistemáticamente los
-modelos existentes en condiciones de habla no formal, más cercanas al lenguaje asistido
-que los corpus de texto escrito.  La evaluación reportada muestra que spaCy alcanza 
-una exactitud (\emph{accuracy}) de entre 0{,}90 y 0{,}93 sobre habla oral, 
-frente al 0{,}98--0{,}99 que obtienen sobre el corpus \emph{AnCora} de texto escrito,
-lo que evidencia una caída de rendimiento sistemática al pasar de texto formal a habla
-espontánea.
-
-La naturaleza del lenguaje asistido plantea retos adicionales para estos modelos: 
-la ausencia de morfología flexiva, el orden de palabras atípico y el vocabulario
-reducido dan lugar a estructuras que se alejan de la distribución estadística de los
-corpus de entrenamiento. Esto sugiere la necesidad de estrategias de adaptación al
-dominio (\emph{domain adaptation}) o de enfoques con pocos ejemplos (\emph{few-shot}).
+Esta limitación motiva la búsqueda de estrategias de adaptación al dominio. Para las categorías
+morfológicas con criterios explícitos, es decir, distinción nombre/verbo en pictogramas de función
+semántica inequívoca,, se emplean heurísticos basados en el vocabulario \ac{ARASAAC}; para las
+categorías ambiguas dependientes del contexto conversacional, como la modalidad verbal o el
+tiempo gramatical inferido a partir del enunciado del interlocutor, se adopta el método de
+aprendizaje con pocos ejemplos sobre el modelo \emph{BETO}, descrito en la
+Sección~\ref{sec:fewshot}.
 
 
 \subsection{PLN en contextos clínicos de lenguaje atípico}
@@ -266,14 +300,37 @@ experto \cite{lsa_morphological_auto}.
 
 Se han identificado tres retos específicos del LSA en poblaciones pediátricas \cite{lsa_swiss_benchmark}: 
 
-\begin{enumerate}
-  \item La alta variabilidad inter e intrasujeto en pronunciación y vocabulario.
-  \item La presencia de estructuras agramaticales o incompletas que confunden los modelos \ac{POS}.
-  \item La escasez de datos anotados en habla infantil clínica, que impide el ajuste fino 
-  (\emph{fine-tuning}) de modelos grandes
-\end{enumerate}
+\begin{itemize}
+  \item \emph{Alta variabilidad inter e intrasujeto.} La pronunciación, el ritmo y el
+  vocabulario activo varían considerablemente entre usuarios de diferentes edades, niveles
+  de desarrollo y patologías, y también entre sesiones de un mismo usuario en función del
+  contexto y del interlocutor. Esta variabilidad dificulta la generalización de los modelos
+  de transcripción y de análisis lingüístico entrenados sobre muestras homogéneas, e impone
+  la necesidad de validar el sistema sobre muestras propias del usuario para el que se
+  despliega, sin dar por supuesto que los umbrales calibrados sobre un usuario se transferirán
+  a otro~\cite{lsa_swiss_benchmark}.
 
+  \item \emph{Estructuras agramaticales e incompletas.} La presencia frecuente de oraciones
+  truncadas, cambios de tema a mitad de enunciado y construcciones no canónicas confunde los
+  modelos de análisis \ac{POS} y de dependencias entrenados sobre \emph{corpus} de habla adulta
+  formal. Algunos resultados muestran caídas de entre ocho y quince puntos porcentuales en la 
+  exactitud del etiquetado morfosintáctico sobre habla infantil respecto a la habla adulta estándar, 
+  con errores concentrados en las categorías funcionales (determinantes, preposiciones y morfemas 
+  verbales) que son precisamente las más relevantes para el análisis del 
+  protocolo \ac{PAALSS}\cite{lsa_swiss_benchmark}.
 
+  \item \emph{Escasez de datos anotados.} La anotación de \emph{corpus} clínicos requiere
+  conocimiento especializado que solo poseen logopedas con formación específica en el
+  protocolo, lo que encarece y ralentiza la construcción de conjuntos de entrenamiento.
+  Las restricciones de privacidad aplicables a datos de menores con discapacidad (en
+  particular el \ac{RGPD} en el contexto europeo) limitan además la posibilidad de compartir
+  \emph{corpus} entre instituciones. Esta escasez descarta el ajuste fino de modelos de gran escala
+  y motiva el uso de las técnicas de aprendizaje con pocos ejemplos descritas en la
+  Sección~\ref{sec:fewshot}, que permiten aprovechar modelos preentrenados con una
+  supervisión adicional mínima~\cite{fewshot_clinical_nlp}.
+\end{itemize}
+
+\newpage
 %% ============================================================
 \section{Aprendizaje con pocos ejemplos en PLN clínico}
 \label{sec:fewshot}
@@ -359,6 +416,8 @@ resuelven mediante heurísticos basados en el vocabulario \ac{ARASAAC}, reservan
 dependiente del contexto}, como la modalidad verbal o el tiempo gramatical inferido a
 partir del enunciado del interlocutor.
 
+
+\newpage
 %% ============================================================
 \section{Generación Aumentada por Recuperación (RAG)}
 \label{sec:ia_protocolos}
@@ -377,21 +436,59 @@ documentos extensos y de dominio específico, donde la respuesta a una pregunta 
 existe en el documento pero localizarla manualmente requiere leer y comprender el texto
 completo.
 
-La arquitectura de un sistema \ac{RAG} se organiza habitualmente en cuatro fases.
-En primer lugar, el documento se segmenta en fragmentos (\emph{chunks}) de tamaño
-manejable, normalmente con cierto solapamiento entre fragmentos consecutivos para
-preservar el contexto en los límites de cada segmento. A continuación, cada fragmento
-se vectoriza mediante un modelo de \emph{embeddings} de frases y se almacena en una
-base de datos vectorial que permite la búsqueda eficiente por similitud semántica; en
-implementaciones locales se emplea habitualmente \emph{FAISS}
-(\emph{Facebook AI Similarity Search}), una biblioteca de código abierto optimizada
-para la búsqueda por vecinos más próximos en espacios vectoriales de alta dimensión.
-Para cada consulta o campo a rellenar, una etapa de recuperación (\emph{retrieval})
-extrae los $k$ fragmentos más similares mediante similitud coseno entre el
-\emph{embedding} de la consulta y los del documento. Por último, el \ac{LLM} recibe
-un \emph{prompt} estructurado con los fragmentos recuperados como contexto y genera la
-respuesta fundamentada exclusivamente en ellos, con la instrucción explícita de señalar
-la ausencia de información cuando los fragmentos recuperados no contengan la respuesta.
+La arquitectura de un sistema \ac{RAG} se organiza en dos fases principales, cuyo
+flujo de información se ilustra en la Figura~\ref{fig:rag_flujo}. En la fase de
+\emph{indexación}, el corpus de referencia (en este caso los enunciados de las sesiones)
+se vectoriza mediante un modelo de \emph{embeddings} y se almacena en una base de datos
+vectorial que permite la búsqueda eficiente por similitud semántica. En implementaciones
+locales se emplea habitualmente \emph{FAISS} (\emph{Facebook AI Similarity Search}), una
+biblioteca de código abierto optimizada para la búsqueda por vecinos más próximos en
+espacios vectoriales de alta dimensión. En la fase de \emph{consulta y generación}, cada
+campo del formulario actúa como una consulta: la etapa de recuperación (\emph{retrieval})
+extrae los $k$ enunciados más similares mediante similitud coseno entre el
+\emph{embedding} de la consulta y los almacenados en el índice. El \ac{LLM} recibe un
+\emph{prompt} estructurado que incluye los enunciados recuperados y las métricas numéricas
+de la sesión (TNW, NDW, \ac{LME}) como contexto, y genera la observación fundamentada
+exclusivamente en ellos, con la instrucción explícita de señalar la ausencia de información
+cuando el contexto recuperado no sea suficiente.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+    node distance = 0.6cm and 1.0cm,
+    box/.style  = {rectangle, draw=gray!55, rounded corners=3pt,
+                   fill=gray!8, minimum width=2.5cm, minimum height=0.8cm,
+                   align=center, font=\small},
+    data/.style = {box, fill=tema!15},
+    arr/.style  = {-{Stealth[length=5pt]}, semithick},
+  ]
+  % Fila superior: indexación
+  \node[data]              (cts) {CTs de la sesión};
+  \node[box, right=of cts] (emb) {\texttt{nomic-embed-text}\\(\emph{Ollama})};
+  \node[box, right=of emb] (idx) {Índice vectorial\\\emph{FAISS}};
+  % Fila inferior: consulta y generación
+  \node[data, below=1.5cm of cts] (q)   {Consulta por\\dimensión \ac{PAALSS}};
+  \node[data, below=0.5cm  of q]  (met) {Métricas PAALSS};
+  \node[box,  right=of q]         (ret) {\emph{Retrieval}\\top-$k$ CTs};
+  \node[box,  right=of ret]       (llm) {\emph{Prompt} +\\\texttt{llama3}};
+  \node[data, right=of llm]       (obs) {Observación\\clínica};
+  % Flechas de indexación
+  \draw[arr] (cts) -- (emb);
+  \draw[arr] (emb) -- (idx);
+  % Flechas de consulta y generación
+  \draw[arr] (q)   -- (ret);
+  \draw[arr] (ret) -- (llm);
+  \draw[arr] (llm) -- (obs);
+  \draw[arr, dashed] (idx.south) -- ++(0,-.5) -| (ret.north);
+  \draw[arr] (met.east) -- ++(0.3,0) |- (llm.west);
+  \end{tikzpicture}
+  \caption[Flujo del sistema \acs{RAG}]{Flujo de información del sistema \ac{RAG}:
+  indexación vectorial de los enunciados de la sesión (fila superior) y consulta por
+  dimensión \ac{PAALSS} con generación de observaciones clínicas ancladas en los
+  enunciados recuperados (fila inferior). La flecha discontinua indica la recuperación
+  por similitud coseno entre el índice \emph{FAISS} y la consulta.}
+  \label{fig:rag_flujo}
+\end{figure}
 
 La viabilidad de esta arquitectura para la extracción de información en protocolos
 clínicos ha sido validada empíricamente por Babaeipour~\cite{clinical_nlp_ai_protocol}: en este
@@ -412,7 +509,7 @@ interfaz de \ac{API} compatible con los estándares habituales de integración, 
 facilita la sustitución del modelo por versiones más actualizadas a medida que la
 investigación avance.
 
-
+\newpage
 %% ============================================================
 \section{Transcripción automática y análisis multimodal}
 \label{sec:transcripcion_multimodal}
@@ -486,6 +583,27 @@ hablante y \emph{clustering} jerárquico aglomerativo, y está implementada como
 librería Python de código abierto con modelos preentrenados disponibles en
 \emph{HuggingFace}.
 
+Dentro del ecosistema \emph{pyannote}, el módulo \textbf{\emph{pyannote-segmentation}}~\cite{pyannote_plaquet2023}
+constituye el componente base que detecta los cambios de hablante a nivel de \emph{frame}.
+Opera sobre ventanas de audio de 10~s con solapamiento del 50\% y produce segmentos
+temporales etiquetados con un identificador de hablante, que la etapa posterior de
+\emph{clustering} agrupa en identidades únicas a lo largo de la sesión. Es este módulo
+el que se emplea en el presente trabajo como primer paso de la diarización, antes de la
+asignación de identidades mediante \emph{clustering} jerárquico aglomerativo, y su
+integración directa como librería \emph{Python} facilita el despliegue local sin infraestructura
+de servidor, en consonancia con el requisito \ac{RGPD} de procesamiento local.
+
+Un aspecto específico de las sesiones de comunicación asistida es la presencia de la voz
+sintetizada (\ac{TTS}) del comunicador electrónico, que difiere acústicamente del habla
+humana por su entonación uniforme y la ausencia de disfluencias. Sin embargo, los modelos
+de diarización de propósito general tienden a asignar estos fragmentos al clúster del
+interlocutor adulto, dado que ambos comparten características de habla adulta fluida.
+Para recuperar estos enunciados del comunicador se emplea en este trabajo una estrategia
+complementaria basada en la detección de eco: las palabras del comunicador son
+habitualmente repetidas por el interlocutor en los segundos siguientes, lo que permite
+confirmar su atribución comparando la transcripción cruda de \emph{Whisper} con los
+segmentos diarizados del interlocutor. Esta estrategia se describe en detalle en el
+Capítulo~\ref{chap:desarrollo}.
 
 %% ============================================================
 \section{Síntesis comparativa}

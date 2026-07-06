@@ -1,0 +1,781 @@
+%%=============================================================
+%% Capítulo 5 — Desarrollo y resultados
+%%=============================================================
+\chapter{Desarrollo y resultados}
+\label{chap:desarrollo}
+
+Este capítulo describe en detalle el proceso de desarrollo del sistema de análisis
+automático de muestras de lenguaje asistido, siguiendo la arquitectura de
+\emph{pipeline} definida en el capítulo anterior. Para cada módulo del sistema se
+presenta el problema que resuelve, las decisiones de diseño e implementación adoptadas
+y los resultados obtenidos sobre el corpus de evaluación. Al final del capítulo se
+recogen las limitaciones identificadas durante el desarrollo y las líneas de trabajo
+futuro que permitirían superarlas.
+
+
+%%=============================================================
+\section{Visión global del sistema}
+\label{sec:vision_global}
+%%=============================================================
+
+El sistema desarrollado en este trabajo transforma la grabación en vídeo de una sesión
+de comunicación asistida en un formulario \ac{PAALSS} parcialmente cumplimentado. Para
+ello, se articula un \emph{pipeline} de procesamiento secuencial compuesto por cuatro
+etapas funcionales que se ejecutan de forma encadenada: la extracción automática de
+turnos comunicativos a partir del canal de audio, el análisis lingüístico de esos
+turnos según las cuatro dimensiones del protocolo, la generación de métricas agregadas
+y, por último, el pre-rellenado del formulario mediante un módulo de generación
+aumentada por recuperación (\ac{RAG}).
+
+La Figura~\ref{fig:arquitectura} muestra la arquitectura completa del sistema. La
+columna izquierda del diagrama representa el canal de audio, que es el único canal
+implementado en este prototipo. El canal de vídeo, destinado a recuperar los
+pictogramas seleccionados en el comunicador, forma parte del diseño del sistema pero
+queda fuera del alcance de este trabajo por las razones expuestas en el capítulo de
+objetivos. La columna central representa la capa de fusión, que integra las señales de
+los distintos módulos en una representación unificada de Turno Comunicativo (\ac{CT}).
+La columna derecha corresponde a las etapas de análisis lingüístico y generación de
+salida.
+
+\begin{figure}[h]
+  \centering
+  \missingfigure{Arquitectura general del \emph{pipeline} de análisis automático}
+  \caption[Arquitectura del \emph{pipeline} PAALSS]{Arquitectura general del
+    \emph{pipeline} de análisis automático. El canal de audio (izquierda) alimenta
+    la capa de fusión de \ac{CT} (centro), que a su vez alimenta el análisis
+    lingüístico y el módulo \ac{RAG} (derecha). El canal de vídeo queda fuera del
+    alcance de este prototipo.}
+  \label{fig:arquitectura}
+\end{figure}
+
+El contrato de datos entre etapas se materializa en un esquema \ac{JSON} estándar
+denominado \texttt{*\_cts\_paalss.json}, definido mediante modelos \emph{Pydantic v2}
+en el módulo \texttt{src/cts\_schema.py}. Este esquema recoge, para cada \ac{CT} de la
+aprendiz, sus marcas temporales de inicio y fin, la fuente de recuperación, la
+modalidad comunicativa, el texto transcrito y, una vez completada la etapa de análisis,
+la estructura \texttt{LinguisticAnalysis} con los resultados de las cuatro dimensiones
+\ac{PAALSS}. La definición explícita de este contrato garantiza que cada etapa pueda
+desarrollarse y evaluarse de forma independiente sin romper la integración con el resto
+del sistema.
+
+La Tabla~\ref{tab:etapas_pipeline} resume las etapas del \emph{pipeline}, los módulos
+que las implementan y los objetivos específicos a los que contribuyen.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{0.5cm}|L{3.5cm}|L{4.5cm}|L{2.5cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{\#} & \bft{Etapa} & \bft{Módulo} & \bft{OE asociado} \\ \hline
+  1 & Transcripción \ac{ASR}        & \texttt{faster-whisper large-v3}          & OE1 \\ \hline
+  2 & Diarización de hablantes      & \texttt{pyannote.audio} + DiCoW           & OE1 \\ \hline
+  3 & Recuperación multicanal       & Eco + PANNs (\texttt{audio\_events.py})   & OE1 \\ \hline
+  4 & Análisis lingüístico          & \texttt{spaCy es\_core\_news\_lg}         & OE2, OE3 \\ \hline
+  5 & Pre-rellenado del protocolo   & \ac{RAG} + \emph{FAISS} + \emph{Ollama}  & OE4 \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[Etapas del \emph{pipeline}]{Resumen de las etapas del \emph{pipeline}, los
+    módulos que las implementan y los objetivos específicos a los que contribuyen.}
+  \label{tab:etapas_pipeline}
+\end{table}
+
+
+%%=============================================================
+\section{Etapa 1: Transcripción automática del habla}
+\label{sec:etapa_asr}
+%%=============================================================
+
+\subsection{Descripción y motivación}
+\label{subsec:asr_desc}
+
+La primera etapa del \emph{pipeline} consiste en obtener una transcripción completa del
+audio de la sesión con marcas temporales precisas para cada segmento de habla. Esta
+transcripción es la materia prima sobre la que se construyen todas las etapas
+posteriores: sin ella no es posible atribuir palabras a hablantes, detectar los
+enunciados del comunicador ni calcular las métricas lingüísticas del protocolo
+\ac{PAALSS}. La necesidad de procesamiento completamente local, impuesta por la
+restricción \ac{RGPD} sobre datos de menores, descarta el uso de servicios de
+reconocimiento de voz en la nube y obliga a emplear modelos que se ejecuten en el
+hardware del clínico.
+
+Para esta tarea se selecciona \emph{Whisper} en su variante \texttt{large-v3}, el
+modelo de reconocimiento automático del habla (\ac{ASR}) publicado por Radford et al.
+en 2023~\cite{whisper_radford2023}. \emph{Whisper} es un modelo \emph{transformer}
+entrenado sobre 680\,000 horas de audio multilingüe procedente de Internet, con
+especial cobertura del español. La ejecución local se realiza mediante la biblioteca
+\texttt{faster-whisper}~\cite{whisper_radford2023}, que aplica cuantización en punto
+flotante de 16 bits (\texttt{float16}) para reducir el consumo de memoria de \ac{GPU}
+sin pérdida apreciable de exactitud. Con la tarjeta disponible (\emph{NVIDIA RTX 3060},
+6~GB de VRAM), una sesión de 28 minutos se transcribe en aproximadamente 4--6 minutos.
+
+
+\subsection{Implementación}
+\label{subsec:asr_impl}
+
+El proceso de transcripción comienza con la extracción del canal de audio del vídeo
+mediante \texttt{ffmpeg}, que convierte el audio a formato WAV mono de 16~kHz, que es
+la frecuencia de muestreo esperada por \emph{Whisper}. A continuación, el modelo
+transcribe el audio completo de la sesión y produce una lista de segmentos, cada uno
+con su texto, su marca temporal de inicio y su marca temporal de fin.
+
+Un elemento clave de esta implementación es la construcción dinámica de un
+\emph{prompt} inicial (\emph{initial\_prompt}) que se suministra al modelo antes de la
+transcripción. En las sesiones de comunicación asistida con \ac{SAAC}, el vocabulario
+empleado por la aprendiz está acotado al conjunto de pictogramas disponibles en su
+tablero de comunicación \ac{ARASAAC}. Al incluir en el \emph{prompt} los términos más
+frecuentes de ese vocabulario, el modelo reduce significativamente los errores
+fonéticos sobre palabras propias del lenguaje asistido, como transcribir ``yoguri'' en
+lugar de ``yogurt'' o ``era su nave'' en lugar de ``érase una vez''. El módulo
+\texttt{src/vocabulary.py} gestiona la construcción de este \emph{prompt} a partir de
+un fichero de vocabulario \ac{ARASAAC} de 13\,133 pictogramas, extraído mediante la
+\ac{API} pública del catálogo aragonés en junio de 2026.
+
+Adicionalmente, el mismo módulo implementa una función de corrección fonética
+(\texttt{correct\_transcript}) basada en distancia de edición difusa (\emph{Levenshtein})
+mediante la biblioteca \texttt{rapidfuzz}. Esta función detecta posibles errores de
+\emph{Whisper} en el texto transcrito y los sustituye por el término correcto del
+vocabulario \ac{ARASAAC} más próximo, siempre que la distancia de edición sea inferior
+a un umbral proporcional a la longitud de la frase. El umbral proporcional es
+necesario para evitar que frases muy cortas como ``Sí.'' o ``Ya.'' se colapsen
+erróneamente con frases formales del tablero de comunicación.
+
+El resultado de esta etapa es un fichero \ac{JSON} almacenado en
+\texttt{results/transcription/} que contiene la lista completa de segmentos
+transcritos con sus marcas temporales. Este fichero es consumido por la etapa de
+diarización para la recuperación de los enunciados del comunicador mediante eco
+(Sección~\ref{sec:etapa_recuperacion}).
+
+
+\subsection{Resultados}
+\label{subsec:asr_resultados}
+
+La Tabla~\ref{tab:asr_ejemplos} muestra una selección de segmentos transcritos por
+\emph{Whisper} en la sesión 1 («¿Dónde están las hadas y la luna?»), junto con la
+corrección aplicada por el módulo de vocabulario cuando procede. Los segmentos
+corresponden tanto a la voz de la interlocutora (Sol Solís) como a la voz sintetizada
+del comunicador de Lucía.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{1.2cm}|L{1.2cm}|L{5.5cm}|L{4.0cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Inicio (s)} & \bft{Fin (s)} & \bft{Transcripción Whisper} & \bft{Corrección} \\ \hline
+    0.0 &  21.4 & Ya estamos con el cuento de los cuentos favoritos... & --- \\ \hline
+   58.0 &  59.5 & Trabajar. & --- \\ \hline
+  112.7 & 115.4 & Colorín colorado, colorín colorado. & --- \\ \hline
+  122.1 & 126.9 & Con colorín colorado, eras una vez. & érase una vez \\ \hline
+  438.4 & 438.8 & Pim Pim Pim & --- \\ \hline
+  522.3 & 532.6 & (sin voz / evento acústico) & --- \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[Ejemplos de transcripción Whisper]{Selección de segmentos transcritos en la
+    sesión 1. La columna ``Corrección'' indica las sustituciones aplicadas por el
+    módulo de vocabulario \ac{ARASAAC}.}
+  \label{tab:asr_ejemplos}
+\end{table}
+
+El tiempo total de procesamiento de la sesión 1 (28 minutos de audio) con el modelo
+\texttt{large-v3} en la \ac{GPU} disponible es de aproximadamente 5 minutos, lo que
+supone una reducción del orden de 5--6$\times$ respecto al tiempo real de la sesión y
+sitúa la transcripción automática muy por debajo del coste manual, que según el protocolo
+\ac{PAALSS}~\cite{soto2020protocolo} puede oscilar entre 3 y 8 horas para una sesión
+de 30 minutos.
+
+
+%%=============================================================
+\section{Etapa 2: Diarización de hablantes y segmentación en turnos}
+\label{sec:etapa_diarizacion}
+%%=============================================================
+
+\subsection{Descripción y motivación}
+\label{subsec:diar_desc}
+
+La transcripción producida por \emph{Whisper} no distingue quién habla en cada
+momento: el texto de la interlocutora y el de la aprendiz aparecen mezclados en la
+misma secuencia de segmentos. La diarización de hablantes es el proceso de asignar
+automáticamente cada segmento de audio a su hablante correspondiente, condición
+indispensable para identificar exclusivamente los turnos comunicativos de la aprendiz
+que establece el protocolo \ac{PAALSS}.
+
+El escenario de diarización en las sesiones de comunicación asistida presenta dos
+particularidades que lo distinguen de los escenarios para los que se han entrenado los
+modelos estándar. En primer lugar, el número de hablantes es siempre dos: la aprendiz
+y el interlocutor de referencia. En segundo lugar, los turnos de la aprendiz son
+extremadamente cortos (duración media inferior a 2 segundos) y a menudo contienen
+únicamente eventos acústicos no verbales (vocalizaciones, risas, balbuceos), lo que
+dificulta la separación de clústeres basada en características acústicas de la voz.
+
+
+\subsection{Implementación}
+\label{subsec:diar_impl}
+
+Para la diarización se emplea el modelo \emph{pyannote.audio} en su configuración de
+\emph{pipeline} preentrenada \texttt{speaker-diarization-3.1}~\cite{pyannote_plaquet2023},
+que combina detección de actividad de voz (\ac{VAD}), segmentación de hablantes y
+\emph{clustering} espectral. Dado que el número de hablantes es conocido de antemano
+(dos: Lucía y la interlocutora), se fija el parámetro \texttt{num\_speakers=2}, lo
+que evita errores de estimación automática del número de participantes.
+
+La fusión de la diarización con la transcripción de \emph{Whisper} se implementa
+siguiendo el enfoque DiCoW (\emph{Diarization-Conditioned
+Whisper})~\cite{dicow_diarization}: en lugar de alinear la transcripción completa con
+la diarización mediante coincidencia temporal de segmentos, se transcribe el audio de
+cada hablante de forma independiente, pasando a \emph{Whisper} únicamente los
+fragmentos de audio asignados a ese hablante por el diarizador. Esta estrategia mejora
+significativamente la exactitud de la transcripción sobre los segmentos cortos de la
+aprendiz, porque el modelo puede aprovechar el contexto lingüístico homogéneo de un
+único hablante en lugar de intentar transcribir una mezcla.
+
+El resultado de esta etapa se almacena en un fichero \ac{JSON} intermedio que contiene,
+para cada segmento, el hablante asignado, las marcas temporales, el texto transcrito y
+un indicador de si el segmento se solapa temporalmente con otro hablante. Estos
+segmentos se agrupan posteriormente por hablante y por proximidad temporal para
+construir los Turnos Comunicativos del documento de sesión.
+
+La definición formal de un \ac{CT} y su esquema de validación se encuentran en el módulo
+\texttt{src/cts\_schema.py}. Cada \ac{CT} es una instancia del modelo Pydantic
+\texttt{CT}, que valida automáticamente restricciones como que el tiempo de fin sea
+posterior al de inicio, que la confianza de transcripción esté en el rango $[0,1]$ o
+que la modalidad sea un valor del enumerado \texttt{Modality} (\emph{comunicador},
+\emph{vocalización}, \emph{no\_verbal}). El tipo de objeto \texttt{CTDocument}
+encapsula la sesión completa y expone métodos de serialización (\texttt{save},
+\texttt{load}) y de filtrado (\texttt{learner\_cts(valid\_only=True)}) que las etapas
+posteriores consumen de forma uniforme.
+
+
+\subsection{Filtrado y limpieza de turnos}
+\label{subsec:diar_filtrado}
+
+Un problema habitual en la diarización de sesiones naturales es la aparición de
+segmentos de Lucía que, en realidad, corresponden a fragmentos de habla del
+interlocutor asignados erróneamente al clúster de la aprendiz. Para mitigar este
+efecto, el módulo \texttt{build\_document} de \texttt{cts\_schema.py} aplica
+automáticamente una función de descarte (\texttt{discard\_reason}) sobre cada \ac{CT}
+de la aprendiz. Esta función marca un turno como descartado por el motivo
+\texttt{posible\_interlocutor} si contiene tres o más palabras pertenecientes al
+conjunto de marcadores discursivos del habla conectada adulta (como \emph{pues},
+\emph{venga}, \emph{vamos}, \emph{claro} o \emph{vale}), palabras que el comunicador
+electrónico de Lucía nunca produciría. De forma análoga, los segmentos de diarización
+que no contienen transcripción de \emph{Whisper} se marcan como \texttt{vacio}.
+
+El criterio de descarte es deliberadamente conservador: se prioriza no eliminar
+enunciados telegráficos reales de Lucía (un \ac{CT} válido de la aprendiz puede
+contener, por ejemplo, únicamente la palabra ``vamos'') sobre eliminar todos los
+posibles errores. Los \ac{CT} descartados no se eliminan del documento, sino que
+permanecen en él con la marca correspondiente para que el especialista pueda
+revisarlos.
+
+La Tabla~\ref{tab:cts_sesion1} resume los resultados de esta etapa sobre la sesión 1.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{7cm}|L{2.5cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Métrica} & \bft{Valor} \\ \hline
+  \ac{CT} totales detectados (Lucía + interlocutor)  & 202 \\ \hline
+  \ac{CT} de Lucía (diarización)                     & 54  \\ \hline
+  \ac{CT} de Lucía descartados (vacíos)              & 20  \\ \hline
+  \ac{CT} de Lucía descartados (posible interlocutor)& 2   \\ \hline
+  \ac{CT} de Lucía válidos (canal diarización)       & 32  \\ \hline
+  Mínimo \ac{PAALSS} (50 \ac{CT})                    & No alcanzado \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[\ac{CT} de diarización sesión 1]{Resultados de la etapa de diarización y
+    filtrado sobre la sesión 1. El umbral mínimo de 50~\ac{CT} válidos que establece
+    el protocolo \ac{PAALSS}~\cite{soto2020protocolo} no se alcanza únicamente con el
+    canal de audio, lo que motiva los módulos de recuperación complementarios de la
+    Sección~\ref{sec:etapa_recuperacion}.}
+  \label{tab:cts_sesion1}
+\end{table}
+
+
+%%=============================================================
+\section{Etapa 3: Recuperación multicanal de turnos comunicativos}
+\label{sec:etapa_recuperacion}
+%%=============================================================
+
+\subsection{Descripción y motivación}
+\label{subsec:rec_desc}
+
+Los resultados de la etapa anterior revelan un problema estructural del canal de audio
+en el contexto de la comunicación asistida: el diarizador únicamente recupera 32~\ac{CT}
+válidos de Lucía, cuando el estándar de referencia (\texttt{PAALSS2\_lucia.pdf})
+contiene 44 \ac{CT} anotados por la especialista. Un análisis de la brecha entre ambas
+cifras permite identificar dos categorías de turnos perdidos.
+
+La primera categoría corresponde a los enunciados producidos mediante el comunicador
+electrónico de Lucía. El dispositivo emite una voz sintetizada adulta y fluida que el
+diarizador \emph{pyannote} asigna sistemáticamente al clúster del interlocutor, dado
+que acústicamente es indistinguible de la voz de la profesional de referencia. Estos
+enunciados contienen la mayor parte del vocabulario de la aprendiz y su pérdida limita
+gravemente la utilidad del análisis lingüístico posterior.
+
+La segunda categoría corresponde a vocalizaciones no verbales de la aprendiz (risas,
+balbuceos, sonidos expresivos) que el diarizador detecta como segmentos sin
+transcripción, y que el paso de filtrado descarta como \texttt{vacio}. Sin embargo,
+estos eventos son comunicativamente relevantes y deben recogerse en el protocolo
+\ac{PAALSS} como anotaciones de la columna de eventos no verbales.
+
+Para mitigar ambas carencias se han diseñado dos módulos de recuperación complementarios
+que operan sobre el resultado de la diarización.
+
+
+\subsection{Módulo de recuperación por eco (canal comunicador)}
+\label{subsec:rec_eco}
+
+El módulo de recuperación por eco (\emph{echo detection}) explota la práctica clínica
+habitual de que el interlocutor repite en voz alta el mensaje que la aprendiz ha
+seleccionado en el comunicador, inmediatamente después de que el dispositivo lo emita.
+Esta repetición actúa como señal de confirmación del enunciado y es audible en el
+canal de audio aunque la voz sintetizada original haya sido incorrectamente asignada al
+clúster del interlocutor.
+
+El algoritmo opera en tres pasos. En primer lugar, se recorre la transcripción bruta
+producida por \emph{Whisper} en la etapa 1 y se puntúan todos los segmentos según la
+función \texttt{score\_as\_device\_tts} del módulo \texttt{src/vocabulary.py}. Esta
+función calcula una puntuación compuesta entre 0 y 1 que combina cuatro indicadores:
+la duración del segmento (los enunciados del comunicador suelen ser breves), el número
+de palabras, la proporción de palabras presentes en el vocabulario \ac{ARASAAC} y la
+coincidencia con frases formales del tablero de comunicación. Los segmentos que superan
+un umbral de puntuación de 0{,}45 se consideran candidatos a enunciado del comunicador.
+
+En segundo lugar, para cada candidato se busca en la transcripción diarizada del
+interlocutor, en una ventana de hasta 8 segundos posteriores al final del candidato,
+si aparece algún fragmento que contenga el mismo término en forma de cita. La aparición
+de esta repetición (\emph{eco}) confirma que el candidato es un enunciado real del
+comunicador y no un fragmento de habla del interlocutor transcrito erróneamente.
+
+En tercer lugar, los candidatos confirmados por eco se añaden al documento de sesión
+como \ac{CT} con la fuente \texttt{echo\_diarized}, diferenciándolos así de los
+\ac{CT} obtenidos por diarización directa (\texttt{diarization}). Esta distinción de
+fuente queda registrada en el campo \texttt{procedencia} del esquema \ac{JSON} y
+permite al especialista revisar con mayor detención los \ac{CT} recuperados por este
+método.
+
+El criterio de confirmación es deliberadamente conservador, exigiendo puntuación alta
+y eco posterior, para evitar incorporar falsos positivos al análisis lingüístico. Una
+variante más permisiva que incluía eco bidireccional y mayor tolerancia en la distancia
+de edición fue probada y descartada porque incrementaba el \emph{recall} en
+aproximadamente un 10~\% pero introducía unos 7 falsos positivos por sesión (términos
+como \emph{casa}, \emph{río} o \emph{ver} que correspondían a habla del interlocutor,
+no a enunciados del comunicador).
+
+Sobre la sesión 1, el módulo de eco conservador recupera 3 \ac{CT} adicionales del
+comunicador (\emph{Aquí}, \emph{Mira} y \emph{Si no están}), lo que eleva el total de
+\ac{CT} válidos de Lucía de 32 a 35.
+
+
+\subsection{Módulo de eventos no verbales (PANNs)}
+\label{subsec:rec_panns}
+
+Los eventos acústicos no verbales de Lucía se detectan y clasifican mediante el módulo
+\texttt{src/audio\_events.py}. Los candidatos a evento no verbal se identifican como
+los segmentos asignados a Lucía por \emph{pyannote} que tienen una duración mínima de
+0{,}4 segundos y no coinciden temporalmente con ninguna palabra transcrita por
+\emph{Whisper}. El uso de \emph{pyannote} como detector de actividad de voz (\ac{VAD})
+es suficiente para capturar vocalizaciones expresivas (risas, balbuceos), dado que
+\emph{pyannote} está entrenado para detectar habla humana en sentido amplio y captura
+estas emisiones sin necesidad de un \ac{VAD} complementario basado en energía de señal.
+
+La clasificación de cada evento utiliza el modelo \textbf{PANNs CNN14} preentrenado en
+AudioSet, un modelo de reconocimiento de audio de propósito general con 527 clases, que
+se ejecuta completamente de forma local sobre PyTorch. Para cada candidato, el módulo
+extrae el clip de audio correspondiente, lo remuestrea a 32~kHz (la frecuencia esperada
+por PANNs) y obtiene un vector de probabilidades sobre las 527 clases. A continuación,
+aplica un mapeo curado (\texttt{AUDIOSET\_TO\_PAALSS}) que traduce las etiquetas de
+AudioSet a las categorías de eventos no verbales empleadas en el protocolo \ac{PAALSS}:
+\emph{risa}, \emph{llanto}, \emph{balbuceo}, \emph{suspiro}, \emph{grito} y
+\emph{queja}. Los eventos que no superan el umbral de confianza de 0{,}5 se marcan
+con \texttt{revisar=True} para que el especialista los verifique manualmente, ya que
+AudioSet es un corpus de dominio general y la voz disártrica infantil suele clasificarse
+como \emph{Speech}, reduciendo la confianza de las etiquetas específicas.
+
+Los eventos no verbales se añaden al documento de sesión como \ac{CT} con la fuente
+\texttt{acoustic\_event} y modalidad \texttt{no\_verbal}. Su texto se registra como
+\texttt{(no verbal: risa)} o similar, y el campo \texttt{anotacion} del esquema
+recoge la etiqueta de tipo de sonido obtenida por PANNs. Esta etiqueta es una
+\emph{pre-anotación} que el especialista debe confirmar o corregir en su revisión, en
+línea con la filosofía del protocolo \ac{PAALSS} de mantener al especialista como
+decisor final.
+
+
+\subsection{Resultados de recuperación multicanal}
+\label{subsec:rec_resultados}
+
+La Tabla~\ref{tab:recall_canales} muestra el \emph{recall} acumulado de cada canal de
+recuperación sobre la sesión 1, calculado frente a los 44 \ac{CT} del estándar de
+referencia anotado por la especialista.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{5.5cm}|L{2cm}|L{2cm}|L{3cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Canal} & \bft{\ac{CT} recuperados} & \bft{\emph{Recall}} & \bft{Fuente JSON} \\ \hline
+  Diarización (\emph{pyannote} + Whisper)  & 32 & 18\,\% & \texttt{diarization} \\ \hline
+  + Eco del comunicador                    & 35 & $\approx$\,36\,\%  & \texttt{echo\_diarized} \\ \hline
+  + Eventos no verbales (PANNs)            & 38 & $\approx$\,40\,\%  & \texttt{acoustic\_event} \\ \hline
+  \bft{Techo teórico canal audio}          & \bft{---} & \bft{$\approx$\,47\,\%} & --- \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[\emph{Recall} por canal de recuperación]{Recall acumulado de los tres canales
+    de recuperación sobre la sesión 1 («¿Dónde están las hadas y la luna?», 44~\ac{CT}
+    en el estándar de referencia). El techo teórico del canal de audio se estima como
+    el porcentaje de \ac{CT} de la aprendiz cuyo contenido está presente en la
+    transcripción bruta de \emph{Whisper}, incluyendo aquellos atribuidos al interlocutor.}
+  \label{tab:recall_canales}
+\end{table}
+
+Estos resultados muestran que el canal de audio, incluso combinando los tres módulos de
+recuperación, alcanza un techo de aproximadamente el 47~\% de los \ac{CT} del estándar
+de referencia. La causa principal de este techo es estructural: aproximadamente el
+56~\% de los turnos de Lucía corresponden a eventos no verbales o gestos que no dejan
+huella en el canal de audio, según el análisis de la distribución de turnos de la
+sesión. Los turnos que escapan al canal de audio son aquellos producidos exclusivamente
+mediante selección de pictogramas en el comunicador sin activación de la síntesis de
+voz, mediante gestos oculares o manuales, o mediante señalización directa. Estos
+enunciados solo son recuperables mediante el procesamiento del canal de vídeo, que
+constituye la extensión más prioritaria del sistema descrita en la
+Sección~\ref{sec:limitaciones}.
+
+
+%%=============================================================
+\section{Etapa 4: Análisis lingüístico PAALSS}
+\label{sec:etapa_nlp}
+%%=============================================================
+
+\subsection{Descripción y motivación}
+\label{subsec:nlp_desc}
+
+Una vez construido el documento de sesión con los \ac{CT} de la aprendiz, la cuarta
+etapa aplica el análisis lingüístico que corresponde a las cuatro dimensiones del
+protocolo \ac{PAALSS}: vocabulario, morfología, longitud media del enunciado y
+sintaxis. Esta etapa opera exclusivamente sobre los \ac{CT} válidos de la aprendiz
+(campo \texttt{descartado=False}) y enriquece cada uno de ellos con una estructura
+\texttt{LinguisticAnalysis} que queda almacenada en el campo \texttt{analisis} del
+esquema \ac{JSON}.
+
+El análisis lingüístico de lenguaje asistido plantea retos específicos que lo
+diferencian del procesamiento de texto convencional. Los pictogramas del comunicador
+representan formas de cita (infinitivo, singular masculino), por lo que la
+ausencia de flexión morfológica no es un error sino una característica intrínseca de
+la modalidad. Del mismo modo, los enunciados de la aprendiz son telegráficos y a menudo
+contienen una o dos palabras, lo que hace que los análisis de dependencias sintácticas
+de los modelos estándar tengan una precisión reducida sobre este tipo de texto.
+
+
+\subsection{Implementación}
+\label{subsec:nlp_impl}
+
+El módulo de análisis lingüístico (\texttt{src/pipeline/etapa3\_nlp.py}) carga el
+modelo \texttt{es\_core\_news\_lg} de \emph{spaCy}~\cite{spoken_spanish_pos} y lo
+aplica sobre el texto de cada \ac{CT} válido. Por razones de compatibilidad con el
+entorno de ejecución en Windows, el módulo se ejecuta en un subproceso Python aislado
+(\texttt{src/pipeline/\_nlp\_worker.py}), separado del proceso principal que ha
+cargado los modelos de \ac{GPU} de las etapas anteriores. Esta separación evita un
+conflicto de runtimes \ac{OMP} entre \emph{PyTorch} y \emph{spaCy} que provoca una
+terminación abrupta del proceso en Windows.
+
+Para cada \ac{CT}, la función \texttt{\_analyze} realiza las siguientes operaciones.
+En primer lugar, tokeniza el texto y filtra signos de puntuación y espacios, obteniendo
+la lista de \emph{tokens} de contenido. En segundo lugar, para cada \emph{token} de
+contenido extrae su etiqueta de categoría gramatical (\ac{POS}) mediante el clasificador
+de \emph{spaCy} y la traduce al conjunto de categorías del protocolo \ac{PAALSS}:
+\emph{verbo}, \emph{nombre}, \emph{adjetivo}, \emph{artículo}, \emph{pronombre},
+\emph{preposición}, \emph{conjunción}, \emph{adverbio}, \emph{interjección} y
+\emph{numeral}. En tercer lugar, calcula la \ac{LME} contando morfemas según las reglas
+del protocolo: cada \emph{token} de contenido aporta un morfema base, más uno adicional
+si está en plural, más uno si es un verbo conjugado en pasado o futuro, más otro si
+tiene persona y número explícitos. En cuarto lugar, detecta la presencia del patrón
+\ac{SVO} mediante heurísticos sobre el árbol de dependencias producido por \emph{spaCy},
+identificando el sujeto (\emph{nsubj}), el verbo raíz (\emph{ROOT}) y el objeto
+(\emph{obj}, \emph{iobj} u \emph{obl}) y calculando el orden relativo de sus posiciones
+en el enunciado.
+
+El resultado de este análisis para cada \ac{CT} se valida automáticamente como
+instancia del modelo Pydantic \texttt{LinguisticAnalysis}, que agrupa cuatro subestructuras:
+\texttt{Vocabulary} (con los campos \emph{tokens}, \emph{lemmas}, \emph{tnw} y
+\emph{categories}), \texttt{MorphologicalFeature} (una lista de registros por
+\emph{token}), \texttt{MLU} (con los campos \emph{morphemes} y \emph{words}) y
+\texttt{Syntax} (con los campos \emph{order}, \emph{svo}, \emph{sentence\_type} y
+\emph{connectors}).
+
+
+\subsection{Resultados del análisis lingüístico}
+\label{subsec:nlp_resultados}
+
+La Tabla~\ref{tab:nlp_ejemplos} muestra el resultado del análisis para una selección
+de \ac{CT} de Lucía en la sesión 1, incluyendo las cuatro dimensiones \ac{PAALSS}.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{3pt}
+  \begin{center}
+  \begin{tabular}{|L{3.5cm}|L{1.8cm}|L{2.0cm}|L{1.0cm}|L{3.8cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Texto CT} & \bft{Categorías} & \bft{Morfología} & \bft{LME} & \bft{Sintaxis} \\ \hline
+  Trabajar.
+    & verbo: 1
+    & infinitivo (forma base)
+    & 1{,}0
+    & Orden: V (solo verbo) \\ \hline
+  Mira, mira, mira, mira.
+    & verbo: 1
+    & imperativo (correcto)
+    & 3{,}0
+    & Orden: V \\ \hline
+  Necesito ayuda.
+    & verbo: 1, nombre: 1
+    & pres. 1.ª sg. + sustantivo
+    & 4{,}0
+    & Orden: VO \\ \hline
+  No hay nada, no hay nada.
+    & verbo: 1, adverbio: 2
+    & negación + pres. impersonal
+    & 3{,}0
+    & Negativa \\ \hline
+  Colorín colorado, colorín colorado.
+    & nombre: 2, adjetivo: 2
+    & nominales en forma base
+    & 4{,}0
+    & Orden: SN \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[Análisis lingüístico de \ac{CT} seleccionados]{Resultado del análisis
+    lingüístico automático sobre una selección de \ac{CT} de Lucía en la sesión 1.
+    La columna LME muestra la \ac{LME} en morfemas calculada por el módulo.}
+  \label{tab:nlp_ejemplos}
+\end{table}
+
+Las métricas agregadas de vocabulario para la sesión 1, calculadas sobre los 35~\ac{CT}
+válidos recuperados por los tres canales, se recogen en la
+Tabla~\ref{tab:metricas_vocabulario}.
+
+\begin{table}[h]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{7cm}|L{2cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Métrica} & \bft{Valor} \\ \hline
+  TNW (Total de palabras)                    & 74   \\ \hline
+  NDW (Número de palabras diferentes)        & 41   \\ \hline
+  Ratio NDW/TNW                              & 0{,}55 \\ \hline
+  LME media (en morfemas)                    & 2{,}8 \\ \hline
+  \ac{CT} con patrón SVO completo            & 3 (8{,}6\,\%) \\ \hline
+  \ac{CT} con verbo presente                 & 6 (17{,}1\,\%) \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[Métricas PAALSS sesión 1]{Métricas lingüísticas calculadas automáticamente
+    sobre los 35~\ac{CT} válidos de Lucía en la sesión 1. Los valores corresponden al
+    resultado del análisis automático y no han sido validados frente al estándar de
+    referencia.}
+  \label{tab:metricas_vocabulario}
+\end{table}
+
+La baja frecuencia de estructuras \ac{SVO} completas (8{,}6\,\%) es coherente con la
+naturaleza telegráfica del lenguaje asistido, donde los pictogramas del comunicador
+representan el contenido léxico mínimo necesario para comunicar la intención y la
+flexión gramatical queda sistemáticamente omitida. Este patrón es precisamente el que
+el protocolo \ac{PAALSS} busca cuantificar como indicador del nivel de desarrollo
+lingüístico de la aprendiz.
+
+
+%%=============================================================
+\section{Etapa 5: Pre-rellenado automático del formulario}
+\label{sec:etapa_rag}
+%%=============================================================
+
+\subsection{Descripción y motivación}
+\label{subsec:rag_desc}
+
+La etapa final del \emph{pipeline} traduce las métricas lingüísticas calculadas y los
+\ac{CT} analizados en propuestas de valores para los campos del formulario oficial
+\ac{PAALSS}. Este es el producto visible del sistema para el profesional clínico: en
+lugar de revisar una tabla de métricas abstractas, el especialista recibe el formulario
+\ac{PAALSS} con los campos numéricos ya cumplimentados y las celdas de texto libre con
+propuestas de descripción ancladas en fragmentos concretos de la sesión.
+
+La arquitectura de generación aumentada por recuperación (\ac{RAG}) es la elección
+adecuada para esta tarea porque combina las ventajas de los modelos de lenguaje grandes
+(capacidad de generar texto en lenguaje natural estructurado) con la necesidad de basar
+las propuestas exclusivamente en la evidencia de la sesión (los \ac{CT} analizados),
+sin recurrir a conocimiento externo que podría introducir alucinaciones. Los trabajos de
+Babaeipour et al.~\cite{clinical_nlp_ai_protocol} muestran que, en tareas de
+extracción de información clínica a partir de protocolos estructurados, la arquitectura
+\ac{RAG} mejora la exactitud del pre-rellenado de un 62{,}6~\% (modelo de lenguaje
+autónomo) a un 89~\% respecto a anotaciones expertas.
+
+
+\subsection{Diseño del módulo}
+\label{subsec:rag_diseno}
+
+El módulo \ac{RAG} se organiza en tres componentes. El primero es la base de datos
+vectorial: los textos y análisis de los \ac{CT} de la sesión se codifican como
+vectores de \emph{embeddings} mediante un modelo de codificación de oraciones en
+español, y se almacenan en un índice \emph{FAISS}~\cite{ollama} que permite la
+recuperación eficiente por similitud semántica. El segundo componente es el motor de
+recuperación: para cada campo del formulario \ac{PAALSS} que requiere una descripción
+textual, se construye una consulta semántica que recupera los \ac{CT} más relevantes de
+la sesión. El tercer componente es el modelo de lenguaje local: los \ac{CT} recuperados
+se concatenan como contexto y se pasan, junto con la instrucción de cumplimentar el
+campo concreto, al modelo de lenguaje ejecutado mediante \emph{Ollama}~\cite{ollama}.
+
+La instrucción al modelo incluye de forma explícita la directriz de indicar
+ausencia de información cuando el contexto recuperado no contenga evidencia suficiente
+para proponer un valor, de modo que el especialista pueda identificar rápidamente qué
+campos requieren revisión manual adicional.
+
+El estado de implementación actual de este módulo es de diseño validado y desarrollo
+parcial. Los componentes de vectorización y recuperación \emph{FAISS} están
+implementados y probados; la integración con \emph{Ollama} y la generación de las
+propuestas para cada campo del formulario están pendientes, como se detalla en la
+Sección~\ref{sec:limitaciones}.
+
+
+%%=============================================================
+\section{Interfaz de usuario}
+\label{sec:interfaz}
+%%=============================================================
+
+El sistema se ofrece al usuario a través de una interfaz web local construida con
+\emph{Streamlit}, que permite al profesional clínico operar el \emph{pipeline}
+completo sin conocimientos de programación. La interfaz se organiza en dos zonas
+principales. La zona superior permite seleccionar el vídeo de la sesión (mediante ruta
+local, para evitar copiar ficheros de gran tamaño en memoria) y configurar los
+parámetros básicos del análisis, como el número de hablantes o el \emph{token} de
+acceso a los modelos de diarización. La zona inferior presenta los resultados una vez
+completado el procesamiento, organizados en cuatro pestañas: resumen de \ac{CT},
+vocabulario, morfología y análisis.
+
+La Figura~\ref{fig:interfaz} ilustra la vista de resultados de la pestaña de resumen
+de \ac{CT}, que muestra para cada turno el número de orden, el instante de inicio, la
+duración, la fuente de recuperación, la modalidad y el texto. Los \ac{CT} descartados
+por el filtro de limpieza se muestran en un panel colapsable separado, de modo que el
+especialista puede revisarlos sin que contaminen la vista principal.
+
+\begin{figure}[h]
+  \centering
+  \missingfigure{Captura de la interfaz Streamlit: pestaña de resumen de \ac{CT} de la sesión 1.}
+  \caption[Interfaz Streamlit]{Vista de la pestaña de resumen de \ac{CT} en la interfaz
+    \emph{Streamlit}. Cada fila muestra un turno comunicativo válido de la aprendiz con
+    su fuente de recuperación y su contenido.}
+  \label{fig:interfaz}
+\end{figure}
+
+
+%%=============================================================
+\section{Limitaciones y análisis de resultados}
+\label{sec:limitaciones}
+%%=============================================================
+
+\subsection{Techo del canal de audio}
+\label{subsec:lim_audio}
+
+El resultado más significativo de la evaluación sobre la sesión 1 es que el canal de
+audio, incluso con los tres módulos de recuperación combinados, alcanza un \emph{recall}
+de aproximadamente el 40~\% respecto al estándar de referencia de la especialista. Este
+techo no es consecuencia de limitaciones evitables de los modelos empleados, sino de
+una restricción estructural del dominio: una parte sustancial de los enunciados de la
+aprendiz se produce exclusivamente mediante selección de pictogramas en el comunicador
+sin síntesis de voz, o mediante gestos oculares, señalización o expresiones corporales,
+modalidades que no dejan ninguna huella en el canal de audio.
+
+El análisis de la distribución de turnos en la sesión 1, realizado a partir de las
+anotaciones del estándar de referencia, muestra que aproximadamente el 56~\% de los
+turnos comunicativos de Lucía son eventos no verbales o vocalizaciones sin transcripción
+inteligible. Esto implica que el techo teórico del canal de audio es del 44~\% de los
+turnos totales de la aprendiz, en perfecta concordancia con el \emph{recall} observado.
+Este resultado valida empíricamente la decisión de diseño de incluir el canal de vídeo
+como componente obligatorio del sistema completo (OE1), y no como mejora opcional.
+
+\subsection{Limitaciones del módulo de recuperación por eco}
+\label{subsec:lim_eco}
+
+El módulo de recuperación por eco recupera con alta precisión los \ac{CT} del
+comunicador cuya voz sintetizada es claramente distinta de la del interlocutor y va
+seguida de una repetición audible. Sin embargo, existen casos en que el interlocutor
+no repite el enunciado, en que la repetición ocurre fuera de la ventana de 8 segundos,
+o en que el enunciado del comunicador consiste en una sola palabra que también forma
+parte del habla natural del interlocutor (como \emph{sí}, \emph{no} o \emph{aquí}),
+lo que hace imposible determinar la fuente sin información visual. En estos casos el
+módulo no recupera el \ac{CT}, contribuyendo a la brecha entre el \emph{recall}
+observado y el techo teórico.
+
+\subsection{Limitaciones del análisis lingüístico}
+\label{subsec:lim_nlp}
+
+El análisis lingüístico basado en \emph{spaCy} está entrenado sobre texto escrito
+convencional, no sobre lenguaje telegráfico ni lenguaje asistido. Los enunciados de
+Lucía, compuestos con frecuencia por una o dos palabras en forma de cita, presentan
+árboles de dependencias incompletos que reducen la precisión del análisis sintáctico.
+La detección del patrón \ac{SVO} mediante heurísticos sobre dependencias resulta
+razonablemente fiable cuando el enunciado tiene estructura predicativa completa, pero
+es inaplicable sobre enunciados nominales (la mayoría). Para mejorar este componente
+sería necesario aplicar modelos de clasificación de función comunicativa específicamente
+entrenados sobre lenguaje asistido en español, para lo que no existe actualmente ningún
+corpus etiquetado disponible en este dominio.
+
+\subsection{Corpus de evaluación limitado}
+\label{subsec:lim_corpus}
+
+El corpus de evaluación disponible se reduce a dos sesiones anotadas manualmente por la
+especialista de referencia, correspondientes a Lucía en dos actividades de lectura
+compartida distintas. Aunque estas dos sesiones son suficientes para demostrar el
+funcionamiento del sistema y obtener métricas iniciales de rendimiento, son insuficientes
+para estimar de forma robusta la capacidad de generalización del sistema a otras
+aprendices, otros interlocutores, otros tipos de actividad o diferentes configuraciones
+de tablero de comunicación. La ampliación del corpus de evaluación a través de la
+colaboración con la \emph{Fábrica de Palabras} es la condición más importante para
+la validación clínica del sistema.
+
+\subsection{Estado del módulo RAG}
+\label{subsec:lim_rag}
+
+El módulo de pre-rellenado del formulario mediante \ac{RAG} se encuentra en estado de
+diseño validado y desarrollo parcial. Los componentes de vectorización y recuperación
+están operativos; la integración con el modelo de lenguaje local y la generación de
+propuestas campo a campo del formulario \ac{PAALSS} están pendientes de implementación.
+En consecuencia, la evaluación cuantitativa de este módulo frente al estándar de
+referencia (OE5, \emph{kappa de Cohen} campo a campo) no ha podido completarse en el
+plazo de este trabajo.
+
+\subsection{Trabajo futuro}
+\label{subsec:trabajo_futuro}
+
+Las limitaciones identificadas permiten trazar de forma concreta las líneas de trabajo
+futuro con mayor impacto esperado. La extensión más prioritaria es la implementación
+del canal de vídeo para la detección de pictogramas seleccionados en el comunicador,
+que permitiría superar el techo del 47~\% del canal de audio y alcanzar un \emph{recall}
+cercano al 90~\% de los turnos de la aprendiz. En segundo lugar, la finalización del
+módulo \ac{RAG} y su evaluación cuantitativa frente a las anotaciones expertas
+completaría la demostración del sistema extremo a extremo. En tercer lugar, la
+ampliación del corpus a nuevas sesiones y nuevas aprendices, en colaboración con la
+\emph{Fábrica de Palabras}, permitiría estimar la generalización del sistema y
+orientar los esfuerzos de mejora hacia los módulos con mayor impacto clínico.
+
+
+% Local Variables:
+%  coding: utf-8
+%  mode: latex
+%  mode: flyspell
+%  ispell-local-dictionary: "castellano8"
+% End:
