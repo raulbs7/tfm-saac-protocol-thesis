@@ -53,9 +53,9 @@ que las acompañan.
 
 \section{Contexto y motivación}
 
-El \textbf{análisis de muestras de lenguaje} (\emph{Language Sample Analysis}, LSA) es
-el protocolo estrella en logopedia para caracterizar las habilidades comunicativas
-expresivas de una persona. Consiste en recoger una muestra representativa de la 
+El \textbf{análisis de muestras de lenguaje} (\emph{Language Sample Analysis}, LSA)
+constituye una metodología ampliamente utilizada en logopedia para caracterizar las
+habilidades comunicativas expresivas de una persona. Consiste en recoger una muestra representativa de la 
 producción lingüística del usuario en contextos naturales, transcribirla y analizarla 
 sistemáticamente en múltiples dimensiones: el vocabulario empleado, la morfología de 
 las formas producidas, la complejidad de las estructuras gramaticales y la organización
@@ -63,10 +63,11 @@ sintáctica de los enunciados. El \ac{LSA} refleja el lenguaje real del usuario,
 capacidad de responder a un estímulo artificial, y permite un seguimiento longitudinal
 genuino del progreso terapéutico \cite{lsa_computer_programs}.
 
-Para los usuarios de \ac{SAAC}, el LSA presenta desafíos específicos que los
-protocolos existentes en inglés, fundamentalmente \ac{SALT} (\emph{Systematic
-Analysis of Language Transcripts}) y CLAN/CHILDES, no estaban diseñados para abordar 
-\cite{soto2022paalss_tutorial}. El lenguaje asistido no es simplemente habla oral 
+Para los usuarios de \ac{SAAC}, el LSA presenta desafíos específicos que las
+herramientas existentes, fundamentalmente \ac{SALT} (\emph{Systematic Analysis of
+Language Transcripts}) y CLAN/CHILDES, no estaban diseñadas para abordar
+\cite{soto2022paalss_tutorial}. Aunque \ac{SALT} dispone de recursos en español,
+estos no han sido adaptados al lenguaje asistido por \ac{SAAC}. El lenguaje asistido no es simplemente habla oral 
 reducida: los pictogramas representan mayoritariamente formas de cita sin flexión 
 morfológica, los enunciados son más cortos y telegráficos, el mensaje puede construirse 
 combinando símbolos con gestos y mirada, y la producción está condicionada por el 
@@ -117,7 +118,7 @@ protocolo \ac{PAALSS}: \textbf{vocabulario}, \textbf{morfología},
 \textbf{complejidad gramatical} y \textbf{sintaxis}. Todo esto sin que el clínico 
 tenga que realizar manualmente la transcripción, segmentación y análisis lingüístico de
 los enunciados. El sistema recibe como entrada una grabación de vídeo y debe producir 
-como salida un formulario pre-rellenado con las métricas cuantitativas que el protocolo 
+como salida un formulario con las métricas cuantitativas que el protocolo 
 exige para cada una de esas dimensiones.
 
 La naturaleza del lenguaje asistido introduce dificultades que no tienen
@@ -164,11 +165,9 @@ Cabe señalar, finalmente, lo que este trabajo no pretende resolver. El sistema
 propuesto no realiza diagnósticos clínicos ni sustituye el criterio del
 especialista en \ac{SAAC}. El alcance se circunscribe al español y a los formatos 
 de sesión compatibles con el \ac{PAALSS}: sesiones de lectura compartida o juego 
-con un interlocutor, grabadas en vídeo. La evaluación de la precisión
-del sistema se lleva a cabo comparando sus salidas con las anotaciones expertas
-de dos sesiones reales del protocolo \cite{soto2024paalss_pilot}, lo que
-establece un límite natural para la generalización de los resultados pero
-permite una comparación directa con el estándar clínico de referencia.
+con un interlocutor, grabadas en vídeo. La evaluación de la precisión del sistema se 
+plantea mediante la comparación de sus salidas con las anotaciones expertas de dos sesiones 
+reales del protocolo\cite{soto2024paalss_pilot}.
 
 \section{Competencias adquiridas}
 
@@ -189,7 +188,7 @@ exige recopilar y procesar datos de calidad bajo criterios éticos y legales (HA
 
 De las competencias \emph{generales}, formalizar las cuatro dimensiones del protocolo en
 métricas computables aplica representación del conocimiento y aprendizaje automático
-para la decisión clínica (CP01); estructurar el trabajo en cinco objetivos específicos
+para la decisión clínica (CP01); estructurar el trabajo en cuatro objetivos específicos
 ejercita la planificación de proyectos de \ac{IA} (CP02); y la identificación de
 limitaciones de sesgo, trazabilidad y privacidad, junto con la renuncia explícita a toda
 función diagnóstica, ejemplifica la detección de debilidades normativas y su mitigación

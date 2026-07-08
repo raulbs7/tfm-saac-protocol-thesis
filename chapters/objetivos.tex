@@ -14,14 +14,16 @@ Este coste temporal limita en la práctica la frecuencia con la que los especial
 aplicar el protocolo, y motiva la búsqueda de un sistema que reduzca dicha carga sin sustituir 
 el juicio clínico del profesional.
 
-El objetivo general de este trabajo es desarrollar un sistema basado en modelos de
-Inteligencia Artificial (\ac{IA}) y de Procesamiento del Lenguaje Natural (\ac{PLN}) capaz de
-automatizar parcialmente dicho protocolo, generando anotaciones y pre-rellenando de forma 
-estructurada sus secciones a partir de las transcripciones y los vídeos de las sesiones. 
-Se entiende por automatización \emph{parcial} que el sistema actúa como asistente de pre-anotación, 
-proponiendo valores para las métricas del protocolo a partir de las cuales el profesional 
-confirma, corrige o completa la codificación final, sin que en ningún caso el sistema emita 
-un diagnóstico final o sustituya la validación experta.
+El objetivo general de este trabajo es diseñar e implementar un prototipo de
+automatización parcial del protocolo \ac{PAALSS} centrado en el \textbf{canal auditivo}
+de la sesión, mediante modelos de \ac{IA} y \ac{PLN} que reduzcan la carga de trabajo
+manual del especialista. El sistema actúa como asistente de pre-anotación: propone
+valores para las métricas del protocolo a partir del procesamiento del audio de la
+sesión, mientras que la validación final recae siempre en el profesional, sin que el
+sistema emita diagnóstico alguno ni sustituya el juicio clínico experto. El análisis
+del canal visual así como del registro del dispositivo (selección de pictogramas y gestos) 
+se plantea como extensión futura del prototipo, una vez validado el canal auditivo sobre 
+las sesiones disponibles.
 
 Ningún trabajo previo revisado en el estado del arte aborda esta automatización para el
 protocolo \ac{PAALSS}. Los precedentes más cercanos operan sobre transcripciones ya elaboradas, 
@@ -31,7 +33,7 @@ mismo modo, las herramientas de \ac{LSA} automático de mayor difusión (Batchal
 \ac{SALT}, \ac{CLAN}) se han desarrollado y validado sobre el inglés, y los modelos de \ac{PLN} 
 disponibles para el español, como \emph{BETO} o \emph{spaCy-es}, degradan su rendimiento sobre 
 habla espontánea e infantil. Esta ausencia de precedente directo justifica el planteamiento de los
-cinco objetivos específicos que se describen a continuación.
+cuatro objetivos específicos que se describen a continuación.
 
 Por último, cabe destacar que el sistema se concibe bajo una restricción de procesamiento
 local: dado que los datos manejados corresponden a sesiones de menores con discapacidad,
@@ -41,12 +43,12 @@ en particular, la elección de las tecnologías empleadas en cada módulo.
 
 \section{Objetivos específicos}
 
-A partir del objetivo general, se han definido cinco objetivos específicos que
+A partir del objetivo general, se han definido cuatro objetivos específicos que
 cubren de forma secuencial las fases necesarias para construir el sistema: extracción de
-enunciados desde el vídeo, procesamiento lingüístico de dichos enunciados, modelado de las
-categorías gramaticales propias del lenguaje asistido, generación automática del
-formulario y validación frente a anotaciones expertas. Cada uno de ellos responde a una
-carencia concreta detectada en la revisión del estado del arte.
+enunciados desde el canal auditivo del vídeo, procesamiento lingüístico de dichos
+enunciados, clasificación morfológica de las categorías ambiguas propias del lenguaje
+asistido, y generación automática del pre-rellenado del formulario. Cada uno de ellos
+responde a una carencia concreta detectada en la revisión del estado del arte.
 
 \subsection{OE1: Extracción automática de enunciados}
 
@@ -59,7 +61,7 @@ separa los turnos de la persona usuaria de SAAC de los de su interlocutor median
 enfoques como \emph{pyannote.audio}~\cite{pyannote_plaquet2023} o
 \emph{DiCoW}~\cite{dicow_diarization}.
 El análisis de la modalidad visual, selección de pictogramas, gesto y mirada, queda planteado
-como línea de trabajo futuro, una vez validado el canal auditivo sobre las sesiones disponibles.
+como línea de trabajo futuro, una vez implementado la solución para el canal auditivo.
 
 \subsection{OE2: Pipeline de procesamiento lingüístico}
 
@@ -76,43 +78,33 @@ multimodal de la sesión y no únicamente la etiqueta léxica del pictograma.
 
 \subsection{OE3: Modelos de análisis gramatical}
 
-Entrenar modelos de \ac{IA} o clasificadores híbridos para
-analizar estructuras gramaticales y sintácticas propias del lenguaje asistido, en
-particular aquellas categorías morfológicas ambiguas que no pueden resolverse mediante
-reglas simples. Un sistema de PLN y aprendizaje automático puede extraer con alta 
-precisión dimensiones lingüísticas análogas a las del protocolo PAALSS sobre habla 
-convencional, lo que respalda la viabilidad de este objetivo, aunque exige adaptar 
-dicho enfoque al canal multimodal del lenguaje asistido. Para las categorías morfológicas 
-con menor disponibilidad de ejemplos anotados, se adopta la estrategia de clasificación
-\emph{few-shot} mediante \emph{Pattern-Exploiting Training} (\ac{PET}) sobre
-\emph{BETO}~\cite{fewshot_clinical_nlp,beto_morphological}.
+Desarrollar un clasificador de las categorías morfológicas ambiguas propias del
+lenguaje asistido por pictogramas: aquellas que no pueden resolverse mediante el
+etiquetado estándar de herramientas de \ac{PLN} entrenadas sobre habla oral, porque
+el contexto comunicativo del \ac{SAAC} altera el valor morfológico esperado de la
+forma de cita. La estrategia adoptada combina reglas lingüísticas explícitas para
+los casos deterministas con clasificación \emph{zero-shot} mediante el modelo de
+lenguaje \emph{BETO}~\cite{beto_morphological} y \emph{Pattern-Exploiting
+Training}~\cite{fewshot_clinical_nlp} para los casos en que el contexto es
+necesario para dirimir la ambigüedad.
 
 \subsection{OE4: Módulo de pre-rellenado del protocolo}
 
-Desarrollar un módulo que genere automáticamente las métricas y tablas del protocolo de
-forma trazable y exportable, de modo que cada valor propuesto pueda vincularse al
-enunciado o conjunto de enunciados que lo sustentan. Para ello se plantea una arquitectura
-de generación aumentada por recuperación (\emph{Retrieval-Augmented Generation}, \ac{RAG})
-\cite{rag_lewis2020} ejecutada mediante un modelo de lenguaje local sobre
-\emph{Ollama}~\cite{ollama}, que recupera los Turnos Comunicativos relevantes y los emplea para 
-fundamentar el pre-rellenado de cada campo del formulario. Esta aproximación replica, para el dominio del
-protocolo \ac{PAALSS}, la viabilidad de la extracción estructurada con supervisión mínima que 
-en protocolos de ensayos clínicos.
-
-\subsection{OE5: Validación con anotaciones expertas}
-
-Validar el rendimiento del sistema comparando sus salidas con las anotaciones realizadas
-por profesionales especializados en SAAC sobre las sesiones disponibles, empleando las
-métricas estándar del campo: \emph{kappa de Cohen} para el acuerdo entre el sistema y el experto,
-y precisión, exhaustividad y F1 para las tareas de clasificación morfológica y sintáctica.
-Esta validación cierra el ciclo de los objetivos anteriores, al determinar en qué medida el
-pre-rellenado propuesto por el sistema (OE4) resulta consistente con el criterio experto
-empleado como referencia.
+Desarrollar un módulo que traduzca las métricas calculadas en OE2 y OE3 en propuestas
+de valores para cada campo del formulario \ac{PAALSS}, de forma trazable y vinculada
+a los enunciados que las sustentan. Sumado a esto, se propone una arquitectura de generación
+aumentada por recuperación (\emph{Retrieval-Augmented Generation}, \ac{RAG})
+\cite{rag_lewis2020} que recupera los \ac{CT} semánticamente relevantes para cada
+campo mediante una base vectorial, y los emplea como contexto para un modelo de
+lenguaje local que genera observaciones acerca de la sesión. Este \emph{RAG} no representa una 
+arquitectura completa final, sino que se plantea como una primera versión parcial para un desarrollo
+futuro. El resultado se exporta como \ac{PDF} editable del formulario oficial, de modo que el especialista pueda revisar,
+corregir y validar cada campo propuesto sin necesidad de partir de cero.
 
 \section{Alcance y limitaciones}
 
 El presente trabajo se circunscribe al español y a los tableros de comunicación basados en
-el catálogo de pictogramas de \textbf{\ac{ARASAAC}}, y se valida exclusivamente sobre dos sesiones
+el catálogo de pictogramas de \textbf{\ac{ARASAAC}}, y se valida únicamente sobre dos sesiones
 anotadas por expertos correspondientes a una misma usuaria, lo que condiciona la
 generalización de los resultados a otros perfiles de usuario o a otros sistemas de
 comunicación aumentativa. El sistema se limita, además, a la generación de un
@@ -155,7 +147,8 @@ Por otra parte, los requisitos \emph{no funcionales} considerados son los siguie
   español, incluyendo las variantes propias del habla infantil y del lenguaje asistido.
   \item \emph{Validez clínica}. El sistema no sustituye el juicio profesional; sus salidas
   se conciben como propuesta de pre-anotación sujeta a confirmación o corrección por parte
-  del especialista.
+  del especialista. No hay validación con ninguna métrica, debido a la falta de muestras y
+  que no entra en los objetivos de este análisis.
 \end{itemize}
 
 % Local Variables:

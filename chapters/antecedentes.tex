@@ -9,9 +9,13 @@ alternativa, la distancia entre lo que la tecnología puede ofrecer y lo que los
 clínicos necesitan sigue siendo considerable, en particular para el español.
 
 Las herramientas consolidadas de análisis automático de muestras de lenguaje —como
-\ac{SALT}, \ac{CLAN} o \ac{SUGAR}— han sido desarrolladas íntegramente en inglés y para
-habla oral típica, sin contemplar ni el español ni los rasgos específicos del lenguaje
-producido mediante pictogramas~\cite{lsa_computer_programs}. Esta carencia no es trivial:
+\ac{SALT}, \ac{CLAN} o \ac{SUGAR}— han sido diseñadas fundamentalmente para habla oral
+típica en inglés \cite{lsa_computer_programs}. Aunque \ac{SALT} dispone de bases de
+datos normativas en español para determinados contextos comunicativos, estas no han sido
+construidas ni validadas sobre hablantes de \ac{SAAC}, por lo que su aplicación al
+lenguaje asistido en español introduce sesgos que infravaloran la competencia real del
+usuario. En ningún caso contemplan los rasgos específicos del lenguaje producido
+mediante pictogramas. Esta carencia no es trivial:
 el lenguaje asistido difiere estructuralmente del habla espontánea en aspectos que afectan
 directamente a la segmentación de enunciados, al etiquetado morfosintáctico y al cálculo
 de métricas de diversidad léxica. Paralelamente, los modelos de \ac{PLN} disponibles en
@@ -148,11 +152,27 @@ diferente:
 Para la recogida de muestras, el protocolo recomienda un mínimo de 50 enunciados por
 sesión, obtenidos en contextos naturales de interacción comunicativa.  La unidad de
 análisis es el \emph{Communication Turn} (CT), definido como cada contribución que realiza
-el usuario durante un turno de conversación.  El protocolo manual requiere que un
-especialista en \ac{SAAC} transcriba la sesión, segmente los enunciados, los codifique
-según las cuatro dimensiones y calcule las métricas globales.  Este proceso puede
-extenderse varias horas por sesión, lo que constituye la principal barrera para su uso
-sistemático en la práctica clínica y educativa~\cite{lsa_computer_programs}.
+el usuario durante un turno de conversación.  El protocolo organiza el registro de estos
+turnos en una hoja de Registro (véase la Figura~\ref{fig:paalss_registro}), en la que el
+especialista consigna, turno a turno, la transcripción del enunciado, la modalidad de
+producción (comunicador electrónico, vocalización u otra) y las observaciones clínicas
+pertinentes.  El protocolo manual requiere que un especialista en \ac{SAAC} transcriba la
+sesión, segmente los enunciados, los codifique según las cuatro dimensiones y calcule las
+métricas globales.  Este proceso puede extenderse varias horas por sesión, lo que
+constituye la principal barrera para su uso sistemático en la práctica clínica y
+educativa~\cite{lsa_computer_programs}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=1\textwidth]{figs/paalss_form.png}
+  \caption[Hoja de Registro del formulario \ac{PAALSS}]{Hoja de Registro del
+  formulario \ac{PAALSS}. Cada fila corresponde a un \ac{CT} de la aprendiz e
+  incluye su transcripción, la modalidad de producción (comunicador electrónico,
+  vocalización u otra) y el espacio para anotaciones clínicas. El sistema
+  desarrollado en este trabajo pre-rellena automáticamente estos campos a partir
+  del procesamiento del audio de la sesión. Fuente: Soto~\cite{soto2020protocolo}.}
+  \label{fig:paalss_registro}
+\end{figure}
 
 \newpage
 %% ============================================================
@@ -200,14 +220,15 @@ convierte en el más rápido de los tres (entre 18 y 22 minutos de codificación
 en los casos analizados por los autores), a costa de no detectar errores gramaticales ni calcular 
 morfemas automáticamente.
 
-Ninguno de los tres programas resulta adecuado para el lenguaje asistido por \ac{SAAC} para 
-este proyecto: sus bases de datos normativas se construyeron sobre habla oral de niños con 
-desarrollo típico, sin contemplar la ausencia de morfología en los pictogramas, el componente
-gestual y multimodal ni el telegrafismo estructural propios del lenguaje
-asistido, así como la barrera del idioma, ya que estas base de datos 
-solo existen para el inglés y está construida sobre muestras de niños con desarrolo oral típico, 
-sin \ac{SAAC} \cite{lsa_computer_programs}. Esta carencia es precisamente la que motivó el desarrollo 
-del protocolo \ac{PAALSS} por parte de Gloria Soto.
+Ninguno de los tres programas resulta adecuado para el lenguaje asistido por \ac{SAAC}
+en este proyecto: sus bases de datos normativas se construyeron sobre habla oral de
+niños con desarrollo típico, sin contemplar la ausencia de morfología en los
+pictogramas, el componente gestual y multimodal ni el telegrafismo estructural propios
+del lenguaje asistido~\cite{lsa_computer_programs}. Que \ac{SALT} disponga de bases de
+datos normativas en español no resuelve este problema, pues dichas bases tampoco han
+sido construidas sobre hablantes de \ac{SAAC}: la limitación determinante no es el
+idioma, sino la ausencia de un modelo de referencia para el lenguaje asistido. Esta carencia es 
+precisamente la que motivó el desarrollo del protocolo \ac{PAALSS} por parte de Gloria Soto.
 
 
 \subsection{Automatización del pipeline de análisis}
@@ -254,7 +275,7 @@ revisa los avances más relevantes para este trabajo.
 \label{subsec:pln_espanol}
 
 Las dos herramientas de referencia para el análisis morfosintáctico del español son
-\emph{spaCy}~\cite{lsa_swiss_benchmark} y \emph{Stanza}. \emph{spaCy} ofrece modelos basados
+\emph{spaCy} \cite{lsa_swiss_benchmark} y \emph{Stanza}. \emph{spaCy} ofrece modelos basados
 en redes neuronales para el etiquetado \ac{POS}, el análisis de dependencias y el
 reconocimiento de entidades; su modelo \texttt{es\_core\_news\_lg} combina vectores de
 palabras preentrenados con una red convolucional de secuencias y constituye la implementación
@@ -263,7 +284,22 @@ desarrollado por el grupo de \ac{PLN} de Stanford, incorpora modelos preentrenad
 corpus \emph{Universal Dependencies} en español y proporciona soporte nativo para lematización
 y análisis de dependencias. Ambas herramientas están disponibles como bibliotecas \emph{Python} de
 código abierto y no requieren infraestructura remota, lo que las hace compatibles con el
-requisito de procesamiento local de este trabajo.
+requisito de procesamiento local de este trabajo. La Figura~\ref{fig:spacy_pipeline} muestra
+los componentes del \emph{pipeline} secuencial de \emph{spaCy} para el modelo
+\texttt{es\_core\_news\_lg}, que es el empleado en este trabajo para el análisis morfológico,
+sintáctico y léxico de los \ac{CT}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.45\textwidth]{figs/spacy_architecture.png}
+  \caption[Arquitectura de \emph{spaCy}]{Arquitectura de la biblioteca \emph{spaCy}.
+    El \emph{pipeline} secuencial transforma el texto de entrada en un objeto
+    \texttt{Doc} anotado mediante componentes encadenados: tokenizador, \emph{tok2vec}
+    (representación vectorial contextual compartida), morfologizador (\ac{POS} y rasgos
+    morfológicos), analizador de dependencias, \ac{NER} y lematizador.
+    Fuente: \emph{spaCy}~\cite{lsa_swiss_benchmark}.}
+  \label{fig:spacy_pipeline}
+\end{figure}
 
 Su rendimiento, sin embargo, cae de forma sistemática al alejarse del texto escrito formal.
 El estudio de Bonilla~\cite{spoken_spanish_pos} presenta COSER-PoS, un corpus anotado
@@ -359,7 +395,8 @@ capaz de operar con un número muy reducido de ejemplos anotados por un especial
 en \ac{SAAC}, lo que sitúa el aprendizaje con pocos ejemplos como la estrategia
 natural para este dominio.
 
-En el contexto de los modelos de lenguaje basados en \emph{Transformer}, pueden
+En el contexto de los modelos de lenguaje basados en \emph{Transformer}
+(véase la Figura~\ref{fig:transformer_arch}), pueden
 distinguirse dos estrategias principales. El \emph{in-context learning} consiste en
 incluir directamente en el \emph{prompt} varios ejemplos del formato \textbf{entrada-etiqueta}
 y dejar que el modelo infiera el patrón sin actualizar ningún parámetro; esta
@@ -372,6 +409,16 @@ en especial cuando solo se dispone de decenas de instancias por clase. Entre amb
 extremos, los métodos de aprendizaje con pocos ejemplos basados en modelos de lenguaje
 enmascarado (\emph{Masked Language Model}, \ac{MLM}) ofrecen un equilibrio adecuado
 para dominios clínicos de pequeño volumen.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.35\textwidth]{figs/transformer_architecture.png}
+  \caption[Arquitectura \emph{Transformer}]{Arquitectura \emph{Transformer} original~\cite{vaswani2017attention}. El bloque de la izquierda es el \textbf{codificador} (\emph{encoder}), compuesto por capas de atención
+    multi-cabeza y redes hacia adelante con conexiones residuales; el bloque de la
+    derecha es el \textbf{decodificador} (\emph{decoder}), que añade atención cruzada
+    sobre la salida del codificador.}
+  \label{fig:transformer_arch}
+\end{figure}
 
 El modelo \emph{BETO}~\cite{beto_morphological} es un modelo de tipo \emph{BERT}
 preentrenado sobre más de 3 GB de texto en español procedentes de la Wikipedia y del
@@ -507,7 +554,7 @@ externas. La herramienta \emph{Ollama}~\cite{ollama} permite ejecutar localmente
 modelos de la familia \emph{Llama} y similares sin ejecutarlos en la nube, ofreciendo una
 interfaz de \ac{API} compatible con los estándares habituales de integración, lo que
 facilita la sustitución del modelo por versiones más actualizadas a medida que la
-investigación avance.
+investigación avance y se puedan desarrollar nuevas funcionalidades a futuro.
 
 \newpage
 %% ============================================================
@@ -524,7 +571,8 @@ directamente las grabaciones de vídeo de las sesiones de comunicación asistida
 \label{subsec:whisper}
 
 \emph{Whisper}~\cite{whisper_radford2023} es un modelo \ac{ASR} desarrollado por
-\emph{OpenAI} basado en la arquitectura \emph{Transformer encoder-decoder},
+\emph{OpenAI} basado en la arquitectura \emph{Transformer encoder-decoder}
+(véase la Figura~\ref{fig:whisper_arch}),
 preentrenado mediante supervisión débil a gran escala: los 680.000 horas de audio de
 entrenamiento proceden de Internet y se emparejan automáticamente con sus
 transcripciones en múltiples idiomas, lo que elimina la necesidad de anotación manual
@@ -532,6 +580,20 @@ masiva y dota al modelo de una capacidad de generalización notable sobre acento
 de fondo y registros informales~\cite{whisper_radford2023}. El modelo es capaz de
 transcribir y traducir hasta 98 idiomas, incluyendo el español, y supera o iguala el
 estado del arte en varios \emph{benchmarks} de robustez sin ajuste fino específico.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.82\textwidth]{figs/whisper-architecture.png}
+  \caption[Arquitectura de \emph{Whisper}]{Arquitectura del modelo \emph{Whisper}.
+    El \textbf{codificador} procesa el espectrograma \emph{log-mel} del audio mediante
+    dos capas convolucionales y bloques \emph{Transformer} con codificación posicional
+    sinusoidal. El \textbf{decodificador} genera los \emph{tokens} de la transcripción
+    de forma autorregresiva mediante atención cruzada sobre la salida del codificador.
+    Los \emph{tokens} especiales de inicio (\texttt{SOT}), idioma (\texttt{EN}) y tarea
+    (\texttt{TRANSCRIBE}) permiten controlar el idioma y la modalidad de salida.
+    Fuente: Radford et al.~\cite{whisper_radford2023}.}
+  \label{fig:whisper_arch}
+\end{figure}
 
 El modelo existe en varias configuraciones de tamaño: \texttt{tiny} (39~M parámetros),
 \texttt{base} (74~M), \texttt{small} (244~M), \texttt{medium} (769~M) y \texttt{large}
@@ -571,7 +633,8 @@ análisis \ac{PAALSS}, realizado \emph{a posteriori} sobre grabaciones de dos ha
 fijos. Un segundo enfoque, \textbf{DiCoW} (\emph{Diarization-Conditioned Whisper}),
 condiciona el \emph{encoder} de Whisper con la salida de un diarizador externo mediante
 máscaras STNO y mecanismos de \emph{Query-Key Biasing} y \emph{Frame-Level
-Diarization-Dependent Transformations}~\cite{dicow_diarization}, evitando así el
+Diarization-Dependent Transformations}~\cite{dicow_diarization}
+(véase la Figura~\ref{fig:dicow_arch}), evitando así el
 enrolamiento del hablante objetivo, aunque requiere una etapa externa de diarización y un
 ajuste fino sobre corpus en inglés alejados de las condiciones acústicas de una sesión
 infantil en español. Un tercer enfoque, \emph{pyannote.audio}~\cite{pyannote_plaquet2023}, es una
@@ -582,6 +645,14 @@ combina segmentación a nivel de \emph{frame}, extracción de \emph{embeddings} 
 hablante y \emph{clustering} jerárquico aglomerativo, y está implementada como
 librería Python de código abierto con modelos preentrenados disponibles en
 \emph{HuggingFace}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.6\textwidth]{figs/dicow_architecture.png}
+  \caption[Arquitectura de \emph{DiCoW}]{Arquitectura de \emph{DiCoW}
+    (\emph{Diarization-Conditioned Whisper})~\cite{dicow_diarization}.}
+  \label{fig:dicow_arch}
+\end{figure}
 
 Dentro del ecosistema \emph{pyannote}, el módulo \textbf{\emph{pyannote-segmentation}}~\cite{pyannote_plaquet2023}
 constituye el componente base que detecta los cambios de hablante a nivel de \emph{frame}.
@@ -641,7 +712,7 @@ en relación con las dimensiones más relevantes para este trabajo.
   Habla infantil típica en lenguas suizas; sin canal de vídeo ni lenguaje asistido \\ \hline
   \rowcolor{tema!10}
   \bft{Este trabajo} & \bft{ES} & \bft{Vídeo} & \bft{Sí} & \bft{Sí} & \bft{Sí} &
-  Validado sobre una única usuaria; canal visual (pictogramas) pendiente de implementar \\ \hline
+  Validado sobre pocos usuarios y sin acceso al registro de los pictogramas del dipositivo \\ \hline
   \end{tabular}
   \end{center}
   \caption[Comparativa de herramientas]{Comparativa de herramientas y enfoques de análisis automático del lenguaje.}

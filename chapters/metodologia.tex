@@ -8,7 +8,7 @@ el despliegue de una herramienta utilizable por los profesionales. Este capítul
 describe la metodología adoptada en este trabajo, organizada en dos grandes bloques:
 la metodología de gestión del proyecto y el ciclo de vida del sistema de inteligencia
 artificial. A continuación se concretan los recursos hardware y software necesarios
-y se describe la arquitectura general del sistema propuesto.
+y se describe la metodología seguida para el desarrollo del sistema propuesto.
 
 
 %% ============================================================
@@ -40,11 +40,12 @@ carece de herramientas previas con las que comparar.
 
 El desarrollo se organiza en fases que corresponden directamente a los objetivos
 específicos definidos en el capítulo anterior: la extracción de enunciados (OE1), el
-procesamiento lingüístico (OE2 y OE3), el pre-rellenado del protocolo (OE4) y la
-validación (OE5). Cada fase concluye con la evaluación cuantitativa del módulo
-desarrollado frente a las anotaciones del experto, lo que permite decidir de forma
-fundamentada si el módulo es suficiente para avanzar o requiere refinamiento adicional
-antes de integrarse en el \emph{pipeline} completo. Las tareas, plazos y dependencias
+procesamiento lingüístico (OE2 y OE3) y el pre-rellenado del protocolo (OE4). Cada
+fase concluye con la revisión del módulo desarrollado, lo que permite decidir de forma
+fundamentada si es suficiente para avanzar o requiere refinamiento adicional antes de
+integrarse en el \emph{pipeline} completo. La validación cuantitativa frente a las
+anotaciones expertas se plantea como trabajo futuro, condicionada a la finalización
+de los objetivos anteriores. Las tareas, plazos y dependencias
 entre módulos se han gestionado mediante un tablero de seguimiento con revisiones
 periódicas con el tutor.
 
@@ -83,7 +84,7 @@ Miller. Cada una de ellas se describe a continuación.
 \label{subsec:caso_uso}
 
 El primer paso es delimitar con precisión qué problema resuelve el sistema, para quién
-y en qué condiciones de uso. En este trabajo, el caso de uso es {la asistencia al
+y en qué condiciones de uso. En este trabajo, el caso de uso es \textbf{la asistencia al
 profesional de logopedia en la cumplimentación del protocolo \ac{PAALSS}} a partir de
 la grabación en vídeo de una sesión de comunicación asistida. El sistema actúa
 exclusivamente como herramienta de pre-anotación: propone valores para las métricas del
@@ -108,22 +109,22 @@ completamente local y disponibilidad de versiones en español o con soporte mult
 de calidad suficiente.
 
 Para la transcripción automática del habla se selecciona \emph{Whisper} en su variante
-\texttt{large-v3}~\cite{whisper_radford2023}, ejecutado localmente mediante la
+\texttt{large-v3} \cite{whisper_radford2023}, ejecutado localmente mediante la
 implementación \texttt{faster-whisper}, que reduce el consumo de memoria a través de
-cuantización en punto flotante de 16 bits sin pérdida apreciable de exactitud. Para la
+cuantización en punto flotante de 16 \emph{bits} sin pérdida apreciable de exactitud. Para la
 diarización de hablantes se emplea \emph{pyannote.audio} en su configuración
-\emph{pipeline} preentrenada~\cite{pyannote_plaquet2023}, complementada con el enfoque
-\textbf{DiCoW}~\cite{dicow_diarization} para la transcripción condicionada por hablante
-en escenarios de dos participantes.
+\emph{pipeline} preentrenada \cite{pyannote_plaquet2023}, complementada con el enfoque
+\textbf{DiCoW} \cite{dicow_diarization} para la transcripción condicionada por hablante
+en escenarios de varios participantes.
 
-Para el procesamiento morfosintáctico del español se emplea \emph{spaCy} con el modelo
-\texttt{es\_core\_news\_lg}~\cite{spoken_spanish_pos} y \emph{Stanza}, combinados con
-el modelo \emph{BETO}~\cite{beto_morphological} para las categorías morfológicas
-ambiguas mediante aprendizaje con pocos ejemplos (\ac{PET})~\cite{fewshot_clinical_nlp}.
-Para el módulo de pre-rellenado del protocolo se adopta una arquitectura de generación
-aumentada por recuperación (\ac{RAG}) que combina una base de datos vectorial
-\emph{FAISS} con un modelo de lenguaje local ejecutado mediante
-\emph{Ollama}~\cite{ollama}.
+Para el procesamiento morfosintáctico del español se emplea \emph{spaCy} con el modelo \\
+\texttt{es\_core\_news\_lg} \cite{spoken_spanish_pos} y \emph{Stanza}, combinados con
+el modelo \emph{BETO} \cite{beto_morphological} para las categorías morfológicas
+ambiguas mediante aprendizaje con pocos ejemplos (\ac{PET}) \cite{fewshot_clinical_nlp}.
+Para las observaciones del módulo de pre-rellenado del protocolo se adopta una 
+arquitectura de generación aumentada por recuperación (\ac{RAG}) que combina una base 
+de datos vectorial \emph{FAISS} con un modelo de lenguaje local ejecutado mediante
+\emph{Ollama} \cite{ollama}.
 
 
 \subsection{Diseño del sistema}
@@ -134,24 +135,25 @@ y secuencial. La modularidad es un requisito de diseño explícito: permite sust
 o mejorar individualmente cada componente sin rediseñar el sistema completo, y facilita
 la evaluación aislada de cada módulo frente al criterio experto antes de la integración.
 
-La arquitectura general se organiza en cuatro capas funcionales. La primera capa
-realiza la extracción de enunciados a partir del vídeo de la sesión: extrae el audio,
-lo transcribe con \emph{Whisper} y combina la transcripción con la diarización de
-hablantes para producir una lista de Turnos Comunicativos atribuidos. La segunda capa
-aplica el procesamiento lingüístico sobre dichos Turnos: etiquetado \ac{POS}, análisis
-morfológico y detección de patrones sintácticos \ac{SVO}. La tercera capa calcula las
-métricas del protocolo \ac{PAALSS} a partir de los enunciados procesados: diversidad
-léxica, perfil morfológico, \ac{LME} y complejidad sintáctica. La cuarta capa aplica
-el módulo \ac{RAG} para traducir estas métricas en el llenado estructurado de los
-campos del formulario, fundamentando cada valor propuesto en los enunciados que lo
-originan.
+La arquitectura general se organiza en cinco etapas secuenciales, cuya implementación
+se detalla en el Capítulo~\ref{chap:desarrollo}. La primera etapa realiza la
+transcripción automática del habla a partir del audio extraído del vídeo de la sesión
+mediante \emph{Whisper}. La segunda etapa aplica la diarización de hablantes para
+atribuir cada segmento a la aprendiz o al interlocutor. La tercera etapa recupera los
+turnos del comunicador electrónico que no son detectables por diarización, mediante
+detección de eco y clasificación de eventos no verbales con \emph{PANNs}. La cuarta
+etapa aplica el procesamiento lingüístico sobre los Turnos Comunicativos resultantes:
+etiquetado \ac{POS}, análisis morfológico, cálculo de \ac{LME} y detección de patrones
+sintácticos \ac{SVO}. La quinta etapa aplica el módulo \ac{RAG} para pre-rellenar los
+campos del formulario \ac{PAALSS}, fundamentando cada valor propuesto en los enunciados
+que lo originan.
 
 
 \subsection{Evaluación del sistema}
 \label{subsec:evaluacion}
 
-La evaluación sigue el protocolo de validación definido en el objetivo específico OE5.
-Cada módulo se evalúa por separado antes de su integración: la transcripción mediante
+El protocolo de evaluación contempla la
+evaluación modular de cada componente antes de su integración: la transcripción mediante
 la tasa de error de palabra (\ac{WER}) respecto a la transcripción manual de referencia;
 la diarización mediante \emph{Diarization Error Rate} (\ac{DER}); la clasificación
 morfológica y sintáctica mediante precisión, exhaustividad y F1 calculadas por
@@ -160,11 +162,14 @@ a campo respecto a las anotaciones del experto. Esta estrategia de evaluación m
 permite identificar los cuellos de botella del sistema y orientar los esfuerzos de
 mejora de forma fundamentada.
 
-El \emph{corpus} de evaluación son las dos sesiones anotadas manualmente por la especialista
-de referencia (sesión 1: «¿Dónde están las hadas y la luna?»; sesión 2: «El ladrón de
-hojas»). El reducido tamaño del \emph{corpus}, consecuencia directa de la escasez de
-anotaciones expertas en este dominio, limita la generalización de los resultados y se
-discute explícitamente en el capítulo de conclusiones.
+El \emph{corpus} de evaluación previsto son las dos sesiones anotadas manualmente por
+la especialista de referencia (sesión 1: «¿Dónde están las hadas y la luna?»; sesión
+2: «El ladrón de hojas»). La ejecución formal de esta evaluación queda pendiente de la
+finalización de los módulos OE2 y OE4, condición necesaria para poder comparar las
+salidas del sistema con el estándar de referencia. El reducido tamaño del
+\emph{corpus}, consecuencia directa de la escasez de anotaciones expertas en este
+dominio, limita la generalización de los resultados y se discute explícitamente en el
+capítulo de conclusiones.
 
 
 \subsection{Despliegue y operación}
@@ -217,9 +222,44 @@ requisitos especiales de memoria gráfica.
 \subsection{Entorno software}
 \label{subsec:software}
 
-El entorno de desarrollo se basa en Python 3.11 con gestión de dependencias mediante
-\texttt{pip} y entornos virtuales. La Tabla~\ref{tab:dependencias} resume las
-principales bibliotecas empleadas en cada módulo del sistema.
+El entorno de desarrollo integra un conjunto de herramientas que abarca desde el
+sistema operativo y los lenguajes de programación hasta los entornos de ejecución y
+las utilidades de documentación. A continuación se describe cada categoría.
+
+
+\subsubsection{Sistema operativo}
+
+El sistema operativo utilizado ha sido \textbf{Windows 11} de 64 bits. Esta
+elección viene determinada por el equipo de desarrollo disponible, que incorpora la
+tarjeta gráfica \ac{GPU} necesaria para ejecutar los modelos de transcripción y
+diarización de forma local. El acceso a la \ac{GPU} se realiza mediante
+\textbf{CUDA~12.x}, que es la versión compatible con el entorno
+\texttt{PyTorch~2.4.1} sobre el que operan los modelos de reconocimiento
+automático del habla y diarización de hablantes.
+
+
+\subsubsection{Lenguajes de programación}
+
+El lenguaje principal del proyecto es \textbf{Python~3.11}, tanto para el desarrollo
+del \emph{pipeline} de procesamiento como para la interfaz gráfica del prototipo.
+Su ecosistema de bibliotecas especializadas en \ac{IA}, \ac{PLN} y audio lo convierte
+en la opción más adecuada para este tipo de proyecto.
+
+Como formato de intercambio de datos entre las etapas del sistema se emplea \\ \textbf{\ac{JSON}}. Este formato permite la validación automática de tipos
+y rangos mediante \emph{Pydantic v2} y resulta legible tanto por humanos como por
+herramientas de análisis externas.
+
+Por último, la redacción de esta memoria se ha realizado íntegramente en
+\textbf{\LaTeX{}} con el motor \emph{XeLaTeX}, que permite una composición tipográfica
+de calidad académica y facilita el mantenimiento de la bibliografía, las referencias
+cruzadas y los índices de figuras y tablas.
+
+
+\subsubsection{Frameworks y bibliotecas}
+
+La Tabla~\ref{tab:dependencias} resume las principales bibliotecas empleadas en cada
+módulo del sistema. Todas se distribuyen como paquetes de código abierto e instalables
+mediante \texttt{pip}.
 
 \begin{table}[h]
   \footnotesize
@@ -234,7 +274,7 @@ principales bibliotecas empleadas en cada módulo del sistema.
   Transcripción \ac{ASR} & \texttt{faster-whisper}          & Transcripción local con Whisper large-v3 \\ \hline
   Diarización            & \texttt{pyannote.audio}          & Separación de hablantes \\ \hline
   \ac{PLN} español       & \texttt{spaCy}, \texttt{Stanza}  & Etiquetado \ac{POS} y morfología \\ \hline
-  \ac{PLN} few-shot      & \texttt{transformers} + BETO     & Clasificación morfológica con \ac{PET} \\ \hline
+  \ac{PLN} \emph{few-shot} & \texttt{transformers} + BETO   & Clasificación morfológica con \ac{PET} \\ \hline
   Vocabulario \ac{SAAC}  & \texttt{rapidfuzz}               & Corrección fonética y búsqueda difusa \\ \hline
   Base vectorial         & \texttt{faiss-cpu}               & Indexación de \emph{embeddings} para \ac{RAG} \\ \hline
   \ac{LLM} local         & \texttt{ollama} (SDK Python)     & Generación de texto para pre-rellenado \\ \hline
@@ -247,12 +287,51 @@ principales bibliotecas empleadas en cada módulo del sistema.
   \renewcommand{\arraystretch}{1}
 \end{table}
 
-El sistema operativo del entorno de desarrollo es Windows 11 con acceso a \ac{GPU}
-mediante CUDA 12.x.
+
+\subsubsection{Entornos de desarrollo}
+
+El desarrollo del \emph{pipeline} se ha llevado a cabo principalmente mediante
+\textbf{JupyterLab}, un entorno web de ejecución por celdas que permite iterar sobre
+fragmentos de código de forma independiente y visualizar los resultados de cada etapa
+de procesamiento de forma inmediata. Esta modalidad de desarrollo resulta especialmente
+adecuada para proyectos exploratorios con datos reales, donde cada bloque del
+\emph{pipeline} debe evaluarse antes de integrarse en el sistema completo.
+
+Para la edición de los módulos \emph{Python} del directorio \texttt{src/} se ha
+empleado \textbf{Visual Studio Code}, un editor de código abierto con soporte para
+múltiples lenguajes, depuración integrada y extensiones para \emph{Python},
+\LaTeX{} y control de versiones. La redacción de la memoria en \LaTeX{} se ha
+realizado también en este mismo entorno.
 
 
-% La descripción técnica detallada de cada módulo del pipeline se desarrolla en el
-% Capítulo~\ref{chap:desarrollo}, donde se presenta también la evaluación de resultados.
+\subsubsection{Control de versiones}
+
+El control de versiones del proyecto se ha gestionado con \textbf{Git} a través de
+\textbf{GitHub}. El repositorio del código de la aplicación
+(\texttt{tfm-saac-protocol-app}) y el de la \\ (\texttt{tfm-saac-protocol-thesis})
+se mantienen como repositorios independientes, lo que permite versionar por separado
+los cambios en el \emph{pipeline} y en la documentación. El uso de \emph{Git} ha
+facilitado asimismo la trazabilidad de las decisiones de diseño adoptadas a lo largo
+del desarrollo iterativo del proyecto.
+
+
+\subsubsection{Herramientas de documentación}
+
+La redacción de la memoria se ha realizado con \textbf{\LaTeX{}} compilado mediante
+el motor \emph{XeLaTeX}, que permite el uso de fuentes \emph{OpenType} y una gestión
+avanzada del español. La bibliografía se gestiona con \textbf{Bib\TeX{}}, con un
+fichero \texttt{ref.bib} centralizado que contiene todas las referencias citadas.
+
+Los diagramas de arquitectura incluidos en la memoria se han elaborado con
+\textbf{Draw.io}, una herramienta web de creación de diagramas de flujo y arquitectura
+que exporta a formatos vectoriales compatibles con \LaTeX{}.
+
+% Local Variables:
+%  coding: utf-8
+%  mode: latex
+%  mode: flyspell
+%  ispell-local-dictionary: "castellano8"
+% End:
 
 
 % Local Variables:

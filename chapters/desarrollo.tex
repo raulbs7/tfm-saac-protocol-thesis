@@ -72,7 +72,7 @@ que las implementan y los objetivos específicos a los que contribuyen.
   \bft{\#} & \bft{Etapa} & \bft{Módulo} & \bft{OE asociado} \\ \hline
   1 & Transcripción \ac{ASR}        & \texttt{faster-whisper large-v3}          & OE1 \\ \hline
   2 & Diarización de hablantes      & \texttt{pyannote.audio} + DiCoW           & OE1 \\ \hline
-  3 & Recuperación multicanal       & Eco + PANNs (\texttt{audio\_events.py})   & OE1 \\ \hline
+  3 & Recuperación complementaria       & Eco + PANNs (\texttt{audio\_events.py})   & OE1 \\ \hline
   4 & Análisis lingüístico          & \texttt{spaCy es\_core\_news\_lg}         & OE2, OE3 \\ \hline
   5 & Pre-rellenado del protocolo   & \ac{RAG} + \emph{FAISS} + \emph{Ollama}  & OE4 \\ \hline
   \end{tabular}
@@ -206,7 +206,7 @@ que establece el protocolo \ac{PAALSS}.
 
 El escenario de diarización en las sesiones de comunicación asistida presenta dos
 particularidades que lo distinguen de los escenarios para los que se han entrenado los
-modelos estándar. En primer lugar, el número de hablantes es siempre dos: la aprendiz
+modelos estándar. En primer lugar, se asume un escenario de dos hablantes: la aprendiz
 y el interlocutor de referencia. En segundo lugar, los turnos de la aprendiz son
 extremadamente cortos (duración media inferior a 2 segundos) y a menudo contienen
 únicamente eventos acústicos no verbales (vocalizaciones, risas, balbuceos), lo que
@@ -301,7 +301,7 @@ La Tabla~\ref{tab:cts_sesion1} resume los resultados de esta etapa sobre la sesi
 
 
 %%=============================================================
-\section{Etapa 3: Recuperación multicanal de turnos comunicativos}
+\section{Etapa 3: Recuperación complementaria de turnos comunicativos}
 \label{sec:etapa_recuperacion}
 %%=============================================================
 
@@ -311,8 +311,10 @@ La Tabla~\ref{tab:cts_sesion1} resume los resultados de esta etapa sobre la sesi
 Los resultados de la etapa anterior revelan un problema estructural del canal de audio
 en el contexto de la comunicación asistida: el diarizador únicamente recupera 32~\ac{CT}
 válidos de Lucía, cuando el estándar de referencia (\texttt{PAALSS2\_lucia.pdf})
-contiene 44 \ac{CT} anotados por la especialista. Un análisis de la brecha entre ambas
-cifras permite identificar dos categorías de turnos perdidos.
+contiene 44 \ac{CT} anotados por la especialista. Para complementar la diarización se
+emplean dos métodos adicionales que operan igualmente sobre el canal auditivo de la
+sesión, y no sobre el canal de vídeo. Un análisis de la brecha entre ambas cifras
+permite identificar dos categorías de turnos perdidos.
 
 La primera categoría corresponde a los enunciados producidos mediante el comunicador
 electrónico de Lucía. El dispositivo emite una voz sintetizada adulta y fluida que el
@@ -360,7 +362,7 @@ En tercer lugar, los candidatos confirmados por eco se añaden al documento de s
 como \ac{CT} con la fuente \texttt{echo\_diarized}, diferenciándolos así de los
 \ac{CT} obtenidos por diarización directa (\texttt{diarization}). Esta distinción de
 fuente queda registrada en el campo \texttt{procedencia} del esquema \ac{JSON} y
-permite al especialista revisar con mayor detención los \ac{CT} recuperados por este
+permite al especialista revisar con especial atención los \ac{CT} recuperados por este
 método.
 
 El criterio de confirmación es deliberadamente conservador, exigiendo puntuación alta
@@ -432,11 +434,13 @@ referencia anotado por la especialista.
   \bft{Techo teórico canal audio}          & \bft{---} & \bft{$\approx$\,47\,\%} & --- \\ \hline
   \end{tabular}
   \end{center}
-  \caption[\emph{Recall} por canal de recuperación]{Recall acumulado de los tres canales
-    de recuperación sobre la sesión 1 («¿Dónde están las hadas y la luna?», 44~\ac{CT}
-    en el estándar de referencia). El techo teórico del canal de audio se estima como
-    el porcentaje de \ac{CT} de la aprendiz cuyo contenido está presente en la
-    transcripción bruta de \emph{Whisper}, incluyendo aquellos atribuidos al interlocutor.}
+  \caption[Cobertura por canal de recuperación]{Análisis de cobertura acumulada de los
+    tres canales de recuperación sobre la sesión 1 («¿Dónde están las hadas y la luna?»).
+    El porcentaje se calcula respecto a los 44~\ac{CT} del estándar de referencia anotado
+    por la especialista, con el único fin de caracterizar el techo estructural del canal de
+    audio; no constituye una evaluación formal del sistema (pendiente como trabajo futuro).
+    El techo teórico se estima como el porcentaje de \ac{CT} cuyo contenido está presente
+    en la transcripción bruta de \emph{Whisper}, incluyendo los atribuidos al interlocutor.}
   \label{tab:recall_canales}
 \end{table}
 
@@ -614,11 +618,11 @@ lugar de revisar una tabla de métricas abstractas, el especialista recibe el fo
 \ac{PAALSS} con los campos numéricos ya cumplimentados y las celdas de texto libre con
 propuestas de descripción ancladas en fragmentos concretos de la sesión.
 
-La arquitectura de generación aumentada por recuperación (\ac{RAG}) es la elección
-adecuada para esta tarea porque combina las ventajas de los modelos de lenguaje grandes
-(capacidad de generar texto en lenguaje natural estructurado) con la necesidad de basar
-las propuestas exclusivamente en la evidencia de la sesión (los \ac{CT} analizados),
-sin recurrir a conocimiento externo que podría introducir alucinaciones. Los trabajos de
+Para esta tarea se propone una arquitectura de generación aumentada por recuperación
+(\ac{RAG}), que combina las ventajas de los modelos de lenguaje grandes (capacidad de
+generar texto en lenguaje natural estructurado) con la necesidad de basar las
+propuestas exclusivamente en la evidencia de la sesión (los \ac{CT} analizados), sin
+recurrir a conocimiento externo que podría introducir alucinaciones. Los trabajos de
 Babaeipour et al.~\cite{clinical_nlp_ai_protocol} muestran que, en tareas de
 extracción de información clínica a partir de protocolos estructurados, la arquitectura
 \ac{RAG} mejora la exactitud del pre-rellenado de un 62{,}6~\% (modelo de lenguaje
@@ -631,7 +635,7 @@ autónomo) a un 89~\% respecto a anotaciones expertas.
 El módulo \ac{RAG} se organiza en tres componentes. El primero es la base de datos
 vectorial: los textos y análisis de los \ac{CT} de la sesión se codifican como
 vectores de \emph{embeddings} mediante un modelo de codificación de oraciones en
-español, y se almacenan en un índice \emph{FAISS}~\cite{ollama} que permite la
+español, y se almacenan en un índice \emph{FAISS}~\cite{faiss_johnson2021} que permite la
 recuperación eficiente por similitud semántica. El segundo componente es el motor de
 recuperación: para cada campo del formulario \ac{PAALSS} que requiere una descripción
 textual, se construye una consulta semántica que recupera los \ac{CT} más relevantes de
@@ -755,8 +759,8 @@ diseño validado y desarrollo parcial. Los componentes de vectorización y recup
 están operativos; la integración con el modelo de lenguaje local y la generación de
 propuestas campo a campo del formulario \ac{PAALSS} están pendientes de implementación.
 En consecuencia, la evaluación cuantitativa de este módulo frente al estándar de
-referencia (OE5, \emph{kappa de Cohen} campo a campo) no ha podido completarse en el
-plazo de este trabajo.
+referencia (\emph{kappa de Cohen} campo a campo) no ha podido completarse en el
+plazo de este trabajo y queda como trabajo futuro.
 
 \subsection{Trabajo futuro}
 \label{subsec:trabajo_futuro}
@@ -764,13 +768,17 @@ plazo de este trabajo.
 Las limitaciones identificadas permiten trazar de forma concreta las líneas de trabajo
 futuro con mayor impacto esperado. La extensión más prioritaria es la implementación
 del canal de vídeo para la detección de pictogramas seleccionados en el comunicador,
-que permitiría superar el techo del 47~\% del canal de audio y alcanzar un \emph{recall}
-cercano al 90~\% de los turnos de la aprendiz. En segundo lugar, la finalización del
-módulo \ac{RAG} y su evaluación cuantitativa frente a las anotaciones expertas
-completaría la demostración del sistema extremo a extremo. En tercer lugar, la
+que permitiría superar el techo del 47~\% del canal de audio. En segundo lugar, la
+finalización del módulo \ac{RAG} y su evaluación cuantitativa frente a las anotaciones
+expertas completaría la demostración del sistema extremo a extremo. En tercer lugar, la
 ampliación del corpus a nuevas sesiones y nuevas aprendices, en colaboración con la
 \emph{Fábrica de Palabras}, permitiría estimar la generalización del sistema y
-orientar los esfuerzos de mejora hacia los módulos con mayor impacto clínico.
+orientar los esfuerzos de mejora hacia los módulos con mayor impacto clínico. Por
+último, el \textbf{empaquetamiento del sistema como instalador autónomo} —que incluya
+la descarga y configuración automática de los modelos y los entornos de ejecución, de
+modo que el clínico pueda instalar y ejecutar el prototipo sin asistencia técnica— es
+una condición necesaria para la realización de la demostración con profesionales de la
+\emph{Fábrica de Palabras} y para cualquier evaluación de utilidad clínica percibida.
 
 
 % Local Variables:

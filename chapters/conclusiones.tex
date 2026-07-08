@@ -1,0 +1,215 @@
+%%=============================================================
+%% Capítulo 6 — Conclusiones y trabajo futuro
+%%=============================================================
+\chapter{Conclusiones}
+\label{chap:conclusiones}
+
+Este trabajo ha abordado el diseño y la implementación parcial de un sistema de
+inteligencia artificial para la automatización parcial del protocolo \ac{PAALSS},
+orientado a reducir la carga de trabajo del especialista en el análisis de muestras
+de lenguaje producidas por usuarios de \ac{SAAC} en español. El punto de partida era
+un proceso íntegramente manual que consume entre tres y ocho horas de trabajo experto
+por cada sesión de treinta minutos~\cite{soto2020protocolo}; el punto de llegada es un
+\emph{pipeline} modular que automatiza las etapas más mecánicas de ese proceso y las
+articula en una interfaz local que el clínico puede operar sin conocimientos de
+programación.
+
+En los apartados que siguen se describe de forma separada lo que ha quedado
+\textbf{implementado y probado}, lo que ha quedado \textbf{diseñado pero pendiente de
+implementación}, y las \textbf{líneas de trabajo futuro} que permitirían completar y
+consolidar el sistema, incluyendo la validación formal frente a anotaciones expertas.
+
+
+%%=============================================================
+\section{Trabajo realizado por objetivo}
+\label{sec:conclusiones_oe}
+%%=============================================================
+
+La Tabla~\ref{tab:cumplimiento} resume el grado de cumplimiento de cada objetivo
+específico del trabajo.
+
+\begin{table}[ht]
+  \footnotesize
+  \renewcommand{\arraystretch}{1.3}
+  \setlength{\tabcolsep}{4pt}
+  \begin{center}
+  \begin{tabular}{|L{1.2cm}|L{3.5cm}|L{3.5cm}|L{5.2cm}|}
+  \hline
+  \rowcolor{tema!10}
+  \bft{Obj.} & \bft{Descripción} & \bft{Estado} & \bft{Observaciones} \\ \hline
+  OE1 & Extracción de \ac{CT} desde audio
+      & \emph{Implementado y probado (canal auditivo)}
+      & ASR + diarización + detección de eco + PANNs; canal vídeo pendiente \\ \hline
+  OE2 & Pipeline de procesamiento lingüístico
+      & \emph{Implementado (reglas + spaCy)}
+      & Vocabulario, morfología básica, \ac{LME} y \ac{SVO}; pendiente validación \\ \hline
+  OE3 & Clasificador morfológico \emph{few-shot}
+      & \emph{Implementado (reglas + BETO \emph{zero-shot})}
+      & Infinitivos, participios y número; BETO opcional (lazy load) \\ \hline
+  OE4 & Pre-rellenado \ac{RAG} del formulario
+      & \emph{Parcialmente implementado}
+      & FAISS + métricas operativos; integración Ollama pendiente de prueba \\ \hline
+  \end{tabular}
+  \end{center}
+  \caption[Cumplimiento de objetivos específicos]{Grado de cumplimiento de los objetivos
+    específicos al cierre de este trabajo.}
+  \label{tab:cumplimiento}
+  \renewcommand{\arraystretch}{1}
+\end{table}
+
+\subsection{OE1 — Extracción automática de turnos comunicativos}
+\label{subsec:conc_oe1}
+
+El objetivo de extracción de \ac{CT} a partir de la grabación de vídeo está
+implementado en su canal de audio. La cadena de procesamiento es funcional de extremo
+a extremo: extracción del audio mediante \texttt{ffmpeg}, transcripción con
+\emph{Whisper} \texttt{large-v3}~\cite{whisper_radford2023}, diarización con
+\emph{pyannote.audio}~\cite{pyannote_plaquet2023} con número fijo de hablantes, fusión
+mediante el enfoque DiCoW~\cite{dicow_diarization}, recuperación de enunciados del
+comunicador por eco y clasificación de eventos no verbales mediante
+\emph{PANNs}~\cite{pyannote_plaquet2023}. El resultado se almacena en el contrato
+de datos estándar \texttt{*\_cts\_paalss.json}, definido con modelos \emph{Pydantic v2}
+en \texttt{src/cts\_schema.py}.
+
+El canal de vídeo, necesario para recuperar los pictogramas seleccionados en el
+comunicador sin activación de síntesis de voz, está diseñado en la arquitectura
+general del sistema (véase la Figura~\ref{fig:arquitectura}) pero queda fuera del
+alcance de este prototipo. Un análisis de cobertura sobre la sesión~1 muestra que el
+canal de audio, incluso combinando los tres módulos de recuperación, tiene un techo
+teórico de aproximadamente el 47\,\% de los turnos comunicativos de la aprendiz,
+lo que confirma que el canal de vídeo es una extensión obligatoria para alcanzar una
+cobertura clínicamente útil.
+
+\subsection{OE2 y OE3 — Procesamiento lingüístico y clasificación morfológica}
+\label{subsec:conc_oe2_oe3}
+
+El módulo de análisis lingüístico \texttt{src/pipeline/etapa3\_nlp.py} está
+implementado. Aplica el modelo \texttt{es\_core\_news\_lg} de \emph{spaCy} sobre el
+texto de cada \ac{CT} válido para calcular la distribución de categorías
+gramaticales, los rasgos morfológicos básicos, la \ac{LME} en morfemas y la presencia
+del patrón \ac{SVO}. Los resultados se almacenan como instancias de
+\texttt{LinguisticAnalysis} en el campo \texttt{analisis} del esquema \ac{JSON}.
+
+El clasificador morfológico para las categorías ambiguas del lenguaje asistido está
+implementado en \texttt{src/pipeline/etapa3\_morfologia.py} mediante reglas lingüísticas
+y confirmación opcional con \emph{BETO}~\cite{beto_morphological} \emph{zero-shot}
+(\ac{PET}~\cite{fewshot_clinical_nlp}). La evaluación formal de la exactitud de este
+módulo frente a las anotaciones expertas queda pendiente como trabajo futuro, junto
+con la evaluación completa del sistema.
+
+\subsection{OE4 — Pre-rellenado automático del formulario}
+\label{subsec:conc_oe4}
+
+El módulo de pre-rellenado del formulario \ac{PAALSS} ha sido diseñado en su
+arquitectura completa (\ac{RAG} + \emph{FAISS} + \emph{Ollama}) y parcialmente
+implementado. Los componentes de cálculo de métricas (\texttt{aggregate\_metrics}),
+vectorización y construcción del índice \emph{FAISS} están operativos. La integración
+con el modelo de lenguaje local mediante \emph{Ollama} para la generación de
+propuestas campo a campo del formulario está implementada en el módulo
+\texttt{src/pipeline/etapa4\_formulario.py} pero no ha sido probada de extremo a extremo
+por ausencia de las métricas \ac{NLP} completas que requiere (resultado de OE2).
+El relleno estructurado del \ac{PDF} \emph{AcroForm} de Gloria Soto está implementado
+y disponible en la interfaz \emph{Streamlit}.
+
+%%=============================================================
+\section{Limitaciones del trabajo}
+\label{sec:conclusiones_limitaciones}
+%%=============================================================
+
+Las limitaciones más relevantes del trabajo pueden clasificarse en tres categorías.
+
+La primera es estructural y no eliminable: el canal de audio tiene un techo de
+cobertura del 47\,\% de los \ac{CT} de la aprendiz, determinado por la proporción de
+turnos producidos mediante selección de pictogramas sin síntesis de voz. Ninguna
+mejora en los modelos de transcripción o diarización puede superar este techo; el
+único camino es incorporar el canal de vídeo.
+
+La segunda es de alcance: el sistema procesa únicamente español y sesiones con
+formato de dos participantes grabados en vídeo con audio inteligible, condiciones
+que coinciden con el diseño del \ac{PAALSS} pero que excluyen un gran número de
+situaciones clínicas reales. La restricción de procesamiento local, si bien es un
+requisito de privacidad no negociable, limita el tamaño de los modelos de lenguaje
+utilizables y, por tanto, la calidad de las propuestas generadas por el módulo \ac{RAG}.
+
+La tercera es de datos: el \emph{corpus} de referencia consta de dos sesiones de una
+única aprendiz, con un único interlocutor y un único tipo de actividad (lectura
+compartida). Los resultados del prototipo, cuando se evalúen formalmente, no podrán
+generalizarse con confianza a otras usuarias, otros comunicadores ni otros contextos
+de interacción sin una ampliación significativa del corpus.
+
+La cuarta es de evaluación: ninguna de las métricas de comparación frente al estándar
+experto ha sido calculada. Los valores numéricos presentados en el capítulo anterior
+(TNW, NDW, \ac{LME}, distribución de categorías gramaticales) son salidas del análisis
+automático que no han sido contrastadas sistemáticamente con las anotaciones de la
+especialista. La evaluación formal queda como la prioridad más urgente del trabajo futuro.
+
+
+%%=============================================================
+\section{Trabajo futuro}
+\label{sec:conclusiones_futuro}
+%%=============================================================
+
+Las líneas de trabajo futuro se ordenan a continuación por su impacto esperado sobre
+la utilidad clínica del sistema.
+
+La tarea más inmediata y prioritaria es la \textbf{validación formal del sistema}
+frente a las anotaciones expertas disponibles. El protocolo contempla la evaluación
+modular de cada componente: transcripción mediante \ac{WER}, diarización mediante
+\ac{DER}, morfología y sintaxis mediante precisión, exhaustividad y F1 por categoría,
+y pre-rellenado mediante \emph{kappa de Cohen} campo a campo. Esta validación requiere
+completar previamente la integración de \emph{Ollama} en el módulo \ac{RAG} (OE4).
+
+En segundo lugar, la \textbf{implementación del canal de vídeo} para la detección de
+pictogramas seleccionados en el comunicador es la única vía para superar el techo del
+47\,\% del canal de audio. Esta extensión requiere la detección de la región de interés
+del tablero en el frame, la clasificación de los pictogramas activados y su fusión
+temporal con los \ac{CT} del canal de audio.
+
+En tercer lugar, la \textbf{ampliación del corpus de evaluación} a nuevas sesiones y
+nuevas aprendices, en colaboración con la \emph{Fábrica de Palabras}, permitiría
+estimar la generalización del sistema y detectar los módulos con mayor impacto en la
+variabilidad inter-usuario.
+
+Por último, el \textbf{empaquetamiento del sistema como instalador autónomo} —que
+incluya la descarga y configuración automática de los modelos, los entornos de
+ejecución y la interfaz, de modo que el clínico pueda instalar y ejecutar el
+prototipo sin asistencia técnica— es una condición necesaria para la realización de
+la demostración con profesionales de la \emph{Fábrica de Palabras} y para cualquier
+uso clínico más allá del entorno de desarrollo.
+
+
+%%=============================================================
+\section{Reflexión final}
+\label{sec:conclusiones_reflexion}
+%%=============================================================
+
+Este trabajo ha demostrado que es técnicamente viable construir, con modelos de
+código abierto y procesamiento completamente local, una cadena de análisis que va
+desde el audio crudo de una sesión de comunicación asistida hasta un conjunto de
+métricas lingüísticas estructuradas y una propuesta de formulario \ac{PAALSS}
+parcialmente cumplimentado. La principal aportación no es un sistema acabado, sino
+un \emph{pipeline} modular documentado, con contratos de datos explícitos y una
+arquitectura que permite sustituir o mejorar cada componente de forma independiente
+a medida que el corpus de evaluación crezca y las limitaciones actuales se superen.
+
+El análisis de cobertura del canal de audio —que sitúa el techo teórico en el
+47\,\%— es en sí mismo un resultado de valor para la comunidad investigadora, ya
+que cuantifica por primera vez, sobre datos reales de una sesión \ac{PAALSS}, la
+proporción de turnos comunicativos de una usuaria de \ac{SAAC} que son recuperables
+desde el canal auditivo. Este resultado valida empíricamente la necesidad del canal
+de vídeo como componente obligatorio de cualquier sistema de análisis automático de
+lenguaje asistido, más allá de las justificaciones teóricas disponibles en la literatura.
+
+Del mismo modo, la elección de modelos locales y la definición de un protocolo de
+evaluación frente a anotaciones expertas establecen las bases para que este trabajo
+pueda progresar hasta una demostración clínica real con la \emph{Fábrica de Palabras},
+contribuyendo así al objetivo más amplio de hacer el \ac{PAALSS} accesible en entornos
+clínicos y educativos donde la carga de trabajo manual impide su aplicación sistemática.
+
+
+% Local Variables:
+%  coding: utf-8
+%  mode: latex
+%  mode: flyspell
+%  ispell-local-dictionary: "castellano8"
+% End:

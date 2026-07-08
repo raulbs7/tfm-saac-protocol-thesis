@@ -97,7 +97,7 @@ A mis amigos, por ser una vía de escape cada vez que estamos juntos.
 %\end{center}
 %\vskip1cm
 
-Yo, Raúl Bernalte Sánchez, con DNI 71360779J, declaro que soy el único autor del trabajo fin de grado titulado ``Automatización inteligente de Protocolo para el Análisis de Muestras de Lenguaje Asistido en SAAC'', que el citado trabajo no infringe las leyes en vigor sobre propiedad intelectual, y que todo el material no original contenido en dicho trabajo está apropiadamente atribuido a sus legítimos autores.
+Yo, Raúl Bernalte Sánchez, con DNI 71360779J, declaro que soy el único autor del trabajo fin de máster titulado ``Automatización inteligente de Protocolo para el Análisis de Muestras de Lenguaje Asistido en SAAC'', que el citado trabajo no infringe las leyes en vigor sobre propiedad intelectual, y que todo el material no original contenido en dicho trabajo está apropiadamente atribuido a sus legítimos autores.
 
 \vspace*{2cm}
 \begin{center}
@@ -120,7 +120,68 @@ Fdo.: \autor
 %\end{center}
 %\vskip0.5cm
 
-\lipsum[1]
+El análisis de muestras de lenguaje asistido mediante el protocolo \ac{PAALSS} exige
+al especialista entre tres y ocho horas de trabajo manual por cada sesión de treinta
+minutos, lo que limita su adopción sistemática en la práctica clínica. Este trabajo
+presenta el diseño y la implementación parcial de un sistema de inteligencia artificial
+que automatiza las etapas más costosas de ese proceso a partir de la grabación en
+vídeo de la sesión: extracción del audio, transcripción automática con \emph{Whisper},
+diarización de hablantes con \emph{pyannote}, recuperación de enunciados del
+comunicador electrónico mediante detección de eco, clasificación de eventos no verbales
+con el modelo \emph{PANNs CNN14} y análisis lingüístico de las cuatro dimensiones del
+protocolo (vocabulario, morfología, \ac{LME} y sintaxis) mediante \emph{spaCy}.
+Adicionalmente, se ha diseñado y desarrollado parcialmente un módulo de pre-rellenado
+del formulario oficial basado en generación aumentada por recuperación (\ac{RAG})
+con \emph{FAISS} y \emph{Ollama}.
+
+Todo el procesamiento se realiza de forma completamente local, en cumplimiento del
+Reglamento General de Protección de Datos, dado que los datos corresponden a menores
+con discapacidad. Los resultados del sistema se integran en una interfaz \emph{Streamlit}
+que permite al clínico revisar y exportar el análisis sin conocimientos de programación.
+Un análisis de cobertura sobre una sesión real muestra que el canal de audio, combinando
+los tres módulos de recuperación, recupera hasta el 40\,\% de los turnos comunicativos
+de la aprendiz, con un techo teórico del 47\,\%, lo que pone de manifiesto la necesidad
+del canal de vídeo como extensión prioritaria del sistema. La validación formal del
+sistema frente a las anotaciones expertas queda como trabajo futuro, junto con la
+implementación completa del módulo \ac{RAG}, la incorporación del canal de vídeo y el
+empaquetamiento del sistema como instalador autónomo.
+
+\vspace{1em}
+\noindent\textbf{Palabras clave:} comunicación aumentativa y alternativa, análisis
+de muestras de lenguaje, protocolo \ac{PAALSS}, reconocimiento automático del habla,
+diarización, procesamiento del lenguaje natural, generación aumentada por recuperación.
+
+% -------------------------------
+% Abstract (English)
+% -------------------------------
+\cleardoublepage
+\thispagestyle{plain}
+\chapter*{Abstract}
+
+The analysis of aided language samples using the \ac{PAALSS} protocol requires between
+three and eight hours of expert manual work per thirty-minute session, which limits its
+systematic adoption in clinical practice. This work presents the design and partial
+implementation of an artificial intelligence system that automates the most time-consuming
+stages of that process from a video recording of the session: audio extraction, automatic
+transcription with \emph{Whisper}, speaker diarization with \emph{pyannote}, recovery of
+electronic communicator utterances via echo detection, non-verbal event classification
+with the \emph{PANNs CNN14} model, and linguistic analysis of the four protocol dimensions
+(vocabulary, morphology, \ac{LME} and syntax) using \emph{spaCy}. Additionally, a
+form pre-filling module based on retrieval-augmented generation (\ac{RAG}) with
+\emph{FAISS} and \emph{Ollama} has been designed and partially implemented.
+
+All processing is performed entirely locally, in compliance with the General Data
+Protection Regulation, as the data involves minors with disabilities. A coverage analysis
+on a real session shows that the audio channel, combining the three recovery modules,
+recovers up to 40\,\% of the learner's communication turns, with a theoretical ceiling
+of 47\,\%, highlighting the need for a video channel as the system's priority extension.
+Formal validation against expert annotations, full \ac{RAG} module implementation,
+video channel incorporation, and standalone installer packaging are left as future work.
+
+\vspace{1em}
+\noindent\textbf{Keywords:} augmentative and alternative communication, language sample
+analysis, \ac{PAALSS} protocol, automatic speech recognition, diarization, natural
+language processing, retrieval-augmented generation.
 
 % -------------------------------
 % Agradecimientos
@@ -133,4 +194,4 @@ Fdo.: \autor
 \end{center}
 \vskip0.5cm
 
-\lipsum[1]
+% TODO: Completar agradecimientos personales.
